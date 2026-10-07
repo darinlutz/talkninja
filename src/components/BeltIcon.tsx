@@ -1,4 +1,4 @@
-// Fill color for each belt in belt_level_key. Unknown names fall back to gray.
+// Fill color for each belt in "BeltLevelKey". Unknown names fall back to gray.
 const BELT_FILLS: Record<string, string> = {
   White: '#ffffff',
   Green: '#16a34a',

@@ -1,10 +1,8 @@
 // Values of users.role. Dependency-free so client components can use it.
+// Subscriptions are tracked separately, in account_status.
 export const ROLES = {
   admin: 'Admin',
-  // Signed up but hasn't bought a subscription (account status "Unsubscribed")
-  unsubscribed: 'Unsubscribed',
-  monthly: 'Monthly Subscriber',
-  lifetime: 'Lifetime Subscription',
+  user: 'User',
 } as const;
 
 export type Role = (typeof ROLES)[keyof typeof ROLES];

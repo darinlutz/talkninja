@@ -13,7 +13,7 @@ export const PASSING_SCORE = 80;
 
 export type LanguageProgress = {
   language: Language;
-  // Highest level earned (0 = No Belt) and its belt_level_key color
+  // Highest level earned (0 = No Belt) and its "BeltLevelKey" color
   beltLevel: number;
   beltColor: string;
   // The level being worked on (null once every belt is earned) and what to
