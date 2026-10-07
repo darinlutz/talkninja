@@ -22,7 +22,8 @@ export async function POST(request: Request) {
     }
 
     const user = await createUser({ userName, emailAddress, password });
-    await createSession(user.id);
+    // A new account stays logged in, as if "Remember me" were checked
+    await createSession(user.id, true);
     return NextResponse.json({ user: { userName: user.userName } }, { status: 201 });
   } catch (error) {
     if (error instanceof EmailTakenError) {

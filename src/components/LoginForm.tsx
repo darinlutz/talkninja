@@ -8,9 +8,15 @@ import ForgotPasswordForm from './ForgotPasswordForm';
 const inputClass =
   'w-full px-4 py-3 bg-white border border-slate-300 rounded-lg text-dark-blue placeholder-slate-400 focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors';
 
-export default function LoginForm() {
+type LoginFormProps = {
+  // Email saved by a previous "Remember me" login on this browser, or ''
+  rememberedEmail: string;
+};
+
+export default function LoginForm({ rememberedEmail }: LoginFormProps) {
   const router = useRouter();
-  const [formData, setFormData] = useState({ emailAddress: '', password: '' });
+  const [formData, setFormData] = useState({ emailAddress: rememberedEmail, password: '' });
+  const [rememberMe, setRememberMe] = useState(rememberedEmail !== '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [forgotPassword, setForgotPassword] = useState(false);
@@ -28,7 +34,7 @@ export default function LoginForm() {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, rememberMe }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -79,6 +85,17 @@ export default function LoginForm() {
           className={inputClass}
         />
       </div>
+
+      <label className="flex items-center gap-2 text-sm text-dark-blue cursor-pointer">
+        <input
+          type="checkbox"
+          name="rememberMe"
+          checked={rememberMe}
+          onChange={(e) => setRememberMe(e.target.checked)}
+          className="h-4 w-4 rounded border-slate-300 accent-powder-600"
+        />
+        Remember me
+      </label>
 
       {error && (
         <p className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{error}</p>

@@ -1,9 +1,10 @@
 import { redirect } from 'next/navigation';
 import LoginForm from '@/components/LoginForm';
-import { getCurrentUser } from '@/lib/session';
+import { getCurrentUser, getRememberedEmail } from '@/lib/session';
 
 export default async function LoginPage() {
   if (await getCurrentUser()) redirect('/');
+  const rememberedEmail = await getRememberedEmail();
 
   return (
     <section className="py-12 px-4 bg-gradient-to-b from-slate-100 to-white flex justify-center">
@@ -12,7 +13,7 @@ export default async function LoginPage() {
           Log In
         </h1>
         <p className="text-slate-600 mb-8">Welcome back. Log in to your account.</p>
-        <LoginForm />
+        <LoginForm rememberedEmail={rememberedEmail} />
       </div>
     </section>
   );
