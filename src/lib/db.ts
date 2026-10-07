@@ -4,6 +4,11 @@ import { Pool, type PoolClient, type QueryResultRow } from 'pg';
 // opening a new set of connections on every edit.
 const globalForDb = globalThis as typeof globalThis & { pgPool?: Pool };
 
+// The database is shared with other apps, so all of TalkNinja's tables live
+// in their own schema. Every connection uses only this schema, so unqualified
+// table names never reach another app's tables in public.
+export const DB_SCHEMA = 'talkninja';
+
 // DATABASE_URL is a standard Postgres connection string; hosted providers
 // that require TLS take `?sslmode=require` on the end of it.
 function getPool(): Pool {
@@ -12,7 +17,7 @@ function getPool(): Pool {
     if (!connectionString) {
       throw new Error('DATABASE_URL is not set');
     }
-    globalForDb.pgPool = new Pool({ connectionString });
+    globalForDb.pgPool = new Pool({ connectionString, options: `-c search_path=${DB_SCHEMA}` });
   }
   return globalForDb.pgPool;
 }
