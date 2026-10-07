@@ -1,7 +1,14 @@
+'use client';
+
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 export default function Footer() {
+  const pathname = usePathname();
   const currentYear = new Date().getFullYear();
+
+  // The landing page (home) ends with its own pricing section instead
+  if (pathname === '/') return null;
 
   return (
     <footer className="bg-slate-50 border-t border-slate-200 text-dark-blue">
@@ -25,14 +32,6 @@ export default function Footer() {
                   className="text-slate-600 hover:text-powder-600 transition-colors"
                 >
                   Home
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/solutions"
-                  className="text-slate-600 hover:text-powder-600 transition-colors"
-                >
-                  Solutions
                 </Link>
               </li>
             </ul>
