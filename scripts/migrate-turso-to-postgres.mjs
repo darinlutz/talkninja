@@ -25,18 +25,18 @@ const SCHEMA = [
   )`,
   'CREATE UNIQUE INDEX IF NOT EXISTS users_email_address_key ON "Users" (lower(email_address))',
   'CREATE INDEX IF NOT EXISTS users_stripe_subscription_id_idx ON "Users" (stripe_subscription_id)',
-  `CREATE TABLE IF NOT EXISTS sessions (
+  `CREATE TABLE IF NOT EXISTS "Sessions" (
     token_hash TEXT PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES "Users"(id) ON DELETE CASCADE,
     expires_at BIGINT NOT NULL
   )`,
-  'CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions (user_id)',
-  `CREATE TABLE IF NOT EXISTS password_resets (
+  'CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON "Sessions" (user_id)',
+  `CREATE TABLE IF NOT EXISTS "PasswordResets" (
     token_hash TEXT PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES "Users"(id) ON DELETE CASCADE,
     expires_at BIGINT NOT NULL
   )`,
-  'CREATE INDEX IF NOT EXISTS password_resets_user_id_idx ON password_resets (user_id)',
+  'CREATE INDEX IF NOT EXISTS password_resets_user_id_idx ON "PasswordResets" (user_id)',
   `CREATE TABLE IF NOT EXISTS friends (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -76,8 +76,8 @@ async function main() {
     for (const statement of SCHEMA) await target.query(statement);
 
     const { rows: counts } = await target.query(
-      `SELECT (SELECT count(*) FROM "Users") + (SELECT count(*) FROM sessions)
-            + (SELECT count(*) FROM password_resets) + (SELECT count(*) FROM friends) AS total`
+      `SELECT (SELECT count(*) FROM "Users") + (SELECT count(*) FROM "Sessions")
+            + (SELECT count(*) FROM "PasswordResets") + (SELECT count(*) FROM friends) AS total`
     );
     if (Number(counts[0].total) > 0) {
       throw new Error('Postgres tables already contain data; aborting so nothing is duplicated or overwritten');
@@ -111,14 +111,14 @@ async function main() {
     );
 
     for (const s of sessions) {
-      await target.query('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES ($1, $2, $3)', [
+      await target.query('INSERT INTO "Sessions" (token_hash, user_id, expires_at) VALUES ($1, $2, $3)', [
         s.TokenHash,
         Number(s.UserId),
         Number(s.ExpiresAt),
       ]);
     }
     for (const r of resets) {
-      await target.query('INSERT INTO password_resets (token_hash, user_id, expires_at) VALUES ($1, $2, $3)', [
+      await target.query('INSERT INTO "PasswordResets" (token_hash, user_id, expires_at) VALUES ($1, $2, $3)', [
         r.TokenHash,
         Number(r.UserId),
         Number(r.ExpiresAt),

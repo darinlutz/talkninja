@@ -16,8 +16,8 @@ export async function createPasswordResetToken(userId: number): Promise<string> 
   await ensureUserSchema();
   const token = randomBytes(32).toString('hex');
   await transaction(async (client) => {
-    await client.query('DELETE FROM password_resets WHERE user_id = $1', [userId]);
-    await client.query('INSERT INTO password_resets (token_hash, user_id, expires_at) VALUES ($1, $2, $3)', [
+    await client.query('DELETE FROM "PasswordResets" WHERE user_id = $1', [userId]);
+    await client.query('INSERT INTO "PasswordResets" (token_hash, user_id, expires_at) VALUES ($1, $2, $3)', [
       hashToken(token),
       userId,
       Date.now() + RESET_TTL_MS,
@@ -28,7 +28,7 @@ export async function createPasswordResetToken(userId: number): Promise<string> 
 
 export async function getPasswordResetUser(token: string): Promise<User | null> {
   await ensureUserSchema();
-  const [row] = await query('SELECT user_id, expires_at FROM password_resets WHERE token_hash = $1', [
+  const [row] = await query('SELECT user_id, expires_at FROM "PasswordResets" WHERE token_hash = $1', [
     hashToken(token),
   ]);
   // BIGINT columns come back from pg as strings
@@ -41,6 +41,6 @@ export async function resetPasswordWithToken(token: string, password: string): P
   const user = await getPasswordResetUser(token);
   if (!user) return false;
   await updatePassword(user.id, password);
-  await query('DELETE FROM password_resets WHERE user_id = $1', [user.id]);
+  await query('DELETE FROM "PasswordResets" WHERE user_id = $1', [user.id]);
   return true;
 }

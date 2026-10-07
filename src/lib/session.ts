@@ -20,7 +20,7 @@ export async function createSession(userId: number, rememberMe: boolean): Promis
   await ensureUserSchema();
   const token = randomBytes(32).toString('hex');
   const expiresAt = Date.now() + (rememberMe ? REMEMBER_ME_TTL_MS : SESSION_TTL_MS);
-  await query('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES ($1, $2, $3)', [
+  await query('INSERT INTO "Sessions" (token_hash, user_id, expires_at) VALUES ($1, $2, $3)', [
     hashToken(token),
     userId,
     expiresAt,
@@ -67,7 +67,7 @@ export async function getCurrentUser(): Promise<User | null> {
 
   try {
     await ensureUserSchema();
-    const [row] = await query('SELECT user_id, expires_at FROM sessions WHERE token_hash = $1', [hashToken(token)]);
+    const [row] = await query('SELECT user_id, expires_at FROM "Sessions" WHERE token_hash = $1', [hashToken(token)]);
     // BIGINT columns come back from pg as strings
     if (!row || Number(row.expires_at) < Date.now()) return null;
     return await getUserById(Number(row.user_id));
@@ -82,7 +82,7 @@ export async function deleteSession(): Promise<void> {
   const token = cookieStore.get(SESSION_COOKIE)?.value;
   if (token) {
     await ensureUserSchema();
-    await query('DELETE FROM sessions WHERE token_hash = $1', [hashToken(token)]);
+    await query('DELETE FROM "Sessions" WHERE token_hash = $1', [hashToken(token)]);
   }
   cookieStore.delete(SESSION_COOKIE);
 }

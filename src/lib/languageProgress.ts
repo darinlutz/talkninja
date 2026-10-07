@@ -24,8 +24,8 @@ function rowToProgress(row: Record<string, unknown>): LanguageProgress {
 
 const PROGRESS_SELECT = `
   SELECT p.language, p.belt_level, p.next_step, b.belt_color
-  FROM user_language_progress p
-  JOIN belt_level_key b ON b.level = p.belt_level`;
+  FROM "UserLanguageProgress" p
+  JOIN "BeltLevelKey" b ON b.level = p.belt_level`;
 
 // Every language the user has started, alphabetically
 export async function getLanguageProgress(userId: number): Promise<LanguageProgress[]> {
@@ -52,14 +52,14 @@ export async function recordLanguageActivity(
 
   return transaction(async (client) => {
     await client.query(
-      `INSERT INTO user_language_progress (user_id, language) VALUES ($1, $2)
+      `INSERT INTO "UserLanguageProgress" (user_id, language) VALUES ($1, $2)
        ON CONFLICT (user_id, language) DO NOTHING`,
       [userId, language]
     );
     const {
       rows: [current],
     } = await client.query(
-      'SELECT belt_level, next_step FROM user_language_progress WHERE user_id = $1 AND language = $2 FOR UPDATE',
+      'SELECT belt_level, next_step FROM "UserLanguageProgress" WHERE user_id = $1 AND language = $2 FOR UPDATE',
       [userId, language]
     );
     const beltLevel = Number(current.belt_level);
@@ -67,7 +67,7 @@ export async function recordLanguageActivity(
     const wasNextStep = nextStep === activity && level === beltLevel + 1;
 
     await client.query(
-      `INSERT INTO language_activity (user_id, language, level, activity, score, passed, was_next_step)
+      `INSERT INTO "LanguageActivity" (user_id, language, level, activity, score, passed, was_next_step)
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       [userId, language, level, activity, score, passed, wasNextStep]
     );
@@ -88,7 +88,7 @@ export async function recordLanguageActivity(
     const advanced = newNextStep !== nextStep || newBeltLevel !== beltLevel;
     if (advanced) {
       await client.query(
-        `UPDATE user_language_progress SET belt_level = $3, next_step = $4, updated_at = now()
+        `UPDATE "UserLanguageProgress" SET belt_level = $3, next_step = $4, updated_at = now()
          WHERE user_id = $1 AND language = $2`,
         [userId, language, newBeltLevel, newNextStep]
       );
@@ -113,7 +113,7 @@ export async function recordLanguageActivity(
 export async function startLanguage(userId: number, language: Language): Promise<LanguageProgress> {
   await ensureUserSchema();
   await query(
-    `INSERT INTO user_language_progress (user_id, language) VALUES ($1, $2)
+    `INSERT INTO "UserLanguageProgress" (user_id, language) VALUES ($1, $2)
      ON CONFLICT (user_id, language) DO NOTHING`,
     [userId, language]
   );
@@ -127,7 +127,7 @@ export async function startLanguage(userId: number, language: Language): Promise
 export async function removeLanguage(userId: number, language: Language): Promise<boolean> {
   await ensureUserSchema();
   const rows = await query(
-    `DELETE FROM user_language_progress WHERE user_id = $1 AND language = $2 AND belt_level = 0
+    `DELETE FROM "UserLanguageProgress" WHERE user_id = $1 AND language = $2 AND belt_level = 0
      RETURNING language`,
     [userId, language]
   );
