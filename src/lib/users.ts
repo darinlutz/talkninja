@@ -17,7 +17,7 @@ export type User = {
   signupDate: string | null;
   subscriptionEndDate: string | null;
   stripeSubscriptionId: string | null;
-  // One of ROLES
+  // Admin or User (see ROLES)
   role: string;
   // Last picked in the Language page's "want to learn" / "I speak"
   // comboboxes; null until the user picks one
@@ -115,24 +115,32 @@ export function ensureUserSchema(): Promise<void> {
           ALTER TABLE talkninjausers DROP COLUMN last_name;
         END IF;
       END $$`);
-      // Added after launch: when the column is first created, existing users
-      // get the role matching their account status, and the site owner is
-      // made Admin. After that, roles are only changed by sign-up and Stripe
-      // purchases (or by hand in the database).
+      // Added after launch: when the column is first created, the site owner
+      // is made Admin and everyone else is a User. After that, roles are only
+      // changed by hand in the database.
       await client.query(`DO $$
       BEGIN
         IF NOT EXISTS (
           SELECT 1 FROM information_schema.columns
           WHERE table_schema = current_schema() AND table_name = 'talkninjausers' AND column_name = 'role'
         ) THEN
-          ALTER TABLE talkninjausers ADD COLUMN role TEXT NOT NULL DEFAULT '${ROLES.unsubscribed}';
-          UPDATE talkninjausers SET role = CASE account_status
-            WHEN 'Active' THEN '${ROLES.monthly}'
-            WHEN '${ACCOUNT_STATUS.monthly}' THEN '${ROLES.monthly}'
-            WHEN 'Paid' THEN '${ROLES.lifetime}'
-            WHEN '${ACCOUNT_STATUS.lifetime}' THEN '${ROLES.lifetime}'
-            ELSE '${ROLES.unsubscribed}' END;
+          ALTER TABLE talkninjausers ADD COLUMN role TEXT NOT NULL DEFAULT '${ROLES.user}';
           UPDATE talkninjausers SET role = '${ROLES.admin}' WHERE lower(email_address) = 'darinlutz@yahoo.com';
+        END IF;
+      END $$`);
+      // Roles used to also mirror the subscription (Unsubscribed, Monthly
+      // Subscriber, Lifetime Subscription); those are all Users now, and the
+      // database only accepts Admin or User.
+      await client.query(`ALTER TABLE talkninjausers ALTER COLUMN role SET DEFAULT '${ROLES.user}'`);
+      await client.query('UPDATE talkninjausers SET role = $1 WHERE role NOT IN ($1, $2)', [ROLES.user, ROLES.admin]);
+      await client.query(`DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint
+          WHERE conrelid = 'talkninjausers'::regclass AND conname = 'talkninjausers_role_check'
+        ) THEN
+          ALTER TABLE talkninjausers ADD CONSTRAINT talkninjausers_role_check
+            CHECK (role IN ('${ROLES.admin}', '${ROLES.user}'));
         END IF;
       END $$`);
       // Account statuses were renamed: New -> Unsubscribed, Active -> Monthly
@@ -288,11 +296,23 @@ export async function createUser(input: {
   await ensureUserSchema();
   const passwordHash = await hashPassword(input.password);
   try {
+    // New users start out as English speakers learning Spanish; they can
+    // change either on the Language page
     const rows = await query(
-      `INSERT INTO talkninjausers (user_name, email_address, password, account_status, signup_date, role)
-       VALUES ($1, $2, $3, $6, $4, $5)
+      `INSERT INTO talkninjausers (user_name, email_address, password, account_status, signup_date, role,
+         native_language, active_learning_language)
+       VALUES ($1, $2, $3, $6, $4, $5, $7, $8)
        RETURNING ${USER_COLUMNS}`,
-      [input.userName, input.emailAddress, passwordHash, new Date().toISOString(), ROLES.unsubscribed, ACCOUNT_STATUS.unsubscribed]
+      [
+        input.userName,
+        input.emailAddress,
+        passwordHash,
+        new Date().toISOString(),
+        ROLES.user,
+        ACCOUNT_STATUS.unsubscribed,
+        'English' satisfies Language,
+        'Spanish' satisfies Language,
+      ]
     );
     return rowToUser(rows[0]);
   } catch (error) {
@@ -360,9 +380,6 @@ export async function setLanguagePreferences(
   );
 }
 
-// SQL for setting role to the given parameter, except that Admins stay Admin
-const KEEP_ADMIN_ELSE = (param: string) => `CASE WHEN role = '${ROLES.admin}' THEN role ELSE ${param} END`;
-
 // Links a completed Checkout Session to the user who started it.
 export async function startSubscription(
   userId: number,
@@ -371,10 +388,10 @@ export async function startSubscription(
 ): Promise<void> {
   await ensureUserSchema();
   await query(
-    `UPDATE talkninjausers SET stripe_customer_id = $1, stripe_subscription_id = $2, account_status = $6,
-       subscription_end_date = $3, role = ${KEEP_ADMIN_ELSE('$5')}
+    `UPDATE talkninjausers SET stripe_customer_id = $1, stripe_subscription_id = $2, account_status = $5,
+       subscription_end_date = $3
      WHERE id = $4`,
-    [stripeCustomerId, stripeSubscriptionId, oneMonthFrom(), userId, ROLES.monthly, ACCOUNT_STATUS.monthly]
+    [stripeCustomerId, stripeSubscriptionId, oneMonthFrom(), userId, ACCOUNT_STATUS.monthly]
   );
 }
 
@@ -388,13 +405,12 @@ export async function grantLifetimeAccess(
 ): Promise<string | null> {
   await ensureUserSchema();
   const [row] = await query(
-    `UPDATE talkninjausers SET account_status = $4, subscription_end_date = NULL,
-       stripe_subscription_id = NULL, stripe_customer_id = COALESCE($1, talkninjausers.stripe_customer_id),
-       role = CASE WHEN talkninjausers.role = '${ROLES.admin}' THEN talkninjausers.role ELSE $3 END
+    `UPDATE talkninjausers SET account_status = $3, subscription_end_date = NULL,
+       stripe_subscription_id = NULL, stripe_customer_id = COALESCE($1, talkninjausers.stripe_customer_id)
      FROM (SELECT id, stripe_subscription_id FROM talkninjausers WHERE id = $2) AS previous
      WHERE talkninjausers.id = previous.id
      RETURNING previous.stripe_subscription_id AS previous_subscription_id`,
-    [stripeCustomerId, userId, ROLES.lifetime, ACCOUNT_STATUS.lifetime]
+    [stripeCustomerId, userId, ACCOUNT_STATUS.lifetime]
   );
   return (row?.previous_subscription_id as string | null | undefined) ?? null;
 }
