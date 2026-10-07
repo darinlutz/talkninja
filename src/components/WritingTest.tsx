@@ -13,6 +13,7 @@ import {
   FEMALE_VOICE,
   fetchTestItem,
   MALE_VOICE,
+  markMismatchedLetters,
   playChime,
   playError,
   speakText,
@@ -108,6 +109,9 @@ export default function WritingTest({
   // The current item is over: matched, or out of chances
   const itemDone = solved || result === 'failed';
   const testInProgress = count > 0 && score === null;
+  // After a wrong Submit, until the user types again
+  const showMistakes = (result === 'wrong' || result === 'failed') && userInput !== '';
+  const mistakesRef = useRef<HTMLDivElement>(null);
   const alignmentKey = item ? `${item.id}|${wordLanguage}|${answerLanguage}` : '';
   const currentAlignment = alignment?.key === alignmentKey ? alignment : null;
 
@@ -339,31 +343,55 @@ export default function WritingTest({
         <label htmlFor="writingTestInput" className="block text-sm font-medium text-dark-blue mb-2">
           Type {wordLanguage} Here
         </label>
-        <textarea
-          id="writingTestInput"
-          name="writingTestInput"
-          value={userInput}
-          onChange={(e) => {
-            setUserInput(e.target.value);
-            if (result === 'wrong') setResult('none');
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              handleSubmit();
-            }
-          }}
-          readOnly={itemDone}
-          placeholder={`Type the ${wordLanguage} you hear, then press Submit`}
-          rows={2}
-          className={`w-full px-4 py-3 bg-white rounded-lg text-dark-blue focus:outline-none focus:ring-1 transition-colors resize-none ${
-            result === 'correct'
-              ? 'border-4 border-green-600 focus:ring-green-600'
-              : result === 'wrong' || result === 'failed'
-                ? 'border-2 border-red-600 focus:ring-red-600'
-                : 'border border-slate-300 focus:border-powder-600 focus:ring-powder-500'
-          }`}
-        />
+        <div className="relative">
+          {/* A textarea can't color single letters, so after a wrong Submit
+              the typed text is drawn underneath it with the mismatched
+              letters in red, and the textarea's own text is made see-through.
+              Typing clears the wrong result, which removes this. */}
+          {showMistakes && (
+            <div
+              ref={mistakesRef}
+              aria-hidden="true"
+              className="absolute inset-0 px-4 py-3 bg-white border-2 border-transparent rounded-lg text-dark-blue whitespace-pre-wrap break-words overflow-hidden"
+            >
+              {markMismatchedLetters(userInput, wordText).map((run, i) => (
+                <span key={i} className={run.wrong ? 'text-red-600' : undefined}>
+                  {run.text}
+                </span>
+              ))}
+            </div>
+          )}
+          <textarea
+            id="writingTestInput"
+            name="writingTestInput"
+            value={userInput}
+            onChange={(e) => {
+              setUserInput(e.target.value);
+              if (result === 'wrong') setResult('none');
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSubmit();
+              }
+            }}
+            onScroll={(e) => {
+              if (mistakesRef.current) mistakesRef.current.scrollTop = e.currentTarget.scrollTop;
+            }}
+            readOnly={itemDone}
+            placeholder={`Type the ${wordLanguage} you hear, then press Submit`}
+            rows={2}
+            className={`relative block w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-1 transition-colors resize-none ${
+              showMistakes ? 'bg-transparent text-transparent caret-dark-blue' : 'bg-white text-dark-blue'
+            } ${
+              result === 'correct'
+                ? 'border-4 border-green-600 focus:ring-green-600'
+                : result === 'wrong' || result === 'failed'
+                  ? 'border-2 border-red-600 focus:ring-red-600'
+                  : 'border border-slate-300 focus:border-powder-600 focus:ring-powder-500'
+            }`}
+          />
+        </div>
         <button
           type="button"
           onClick={handleSubmit}

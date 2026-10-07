@@ -280,6 +280,45 @@ export async function fetchLanguageProgress(): Promise<{
   };
 }
 
+// Splits a typed answer into runs of letters that match the expected text
+// and letters that don't, for showing the mistakes in red. Uses the longest
+// common subsequence, so one missing or extra letter only marks that spot
+// rather than everything after it.
+export function markMismatchedLetters(input: string, expected: string): { text: string; wrong: boolean }[] {
+  const a = Array.from(input);
+  const b = Array.from(expected);
+  // lcs[i][j] = length of the longest common subsequence of a[i..] and b[j..]
+  const lcs = Array.from({ length: a.length + 1 }, () => new Array<number>(b.length + 1).fill(0));
+  for (let i = a.length - 1; i >= 0; i--) {
+    for (let j = b.length - 1; j >= 0; j--) {
+      lcs[i][j] = a[i] === b[j] ? lcs[i + 1][j + 1] + 1 : Math.max(lcs[i + 1][j], lcs[i][j + 1]);
+    }
+  }
+
+  const runs: { text: string; wrong: boolean }[] = [];
+  const push = (char: string, wrong: boolean) => {
+    const last = runs[runs.length - 1];
+    if (last && last.wrong === wrong) last.text += char;
+    else runs.push({ text: char, wrong });
+  };
+  let i = 0;
+  let j = 0;
+  while (i < a.length) {
+    if (j < b.length && a[i] === b[j]) {
+      push(a[i], false);
+      i++;
+      j++;
+    } else if (j < b.length && lcs[i][j + 1] >= lcs[i + 1][j]) {
+      // A letter of the expected text is missing here; nothing typed to mark
+      j++;
+    } else {
+      push(a[i], true);
+      i++;
+    }
+  }
+  return runs;
+}
+
 // The belt level a Difficulty corresponds to; null for Fast Phrases/Words
 export function difficultyLevel(difficulty: TestDifficulty | number): number | null {
   const level = Number(difficulty);
