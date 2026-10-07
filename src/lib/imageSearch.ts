@@ -2,9 +2,7 @@ interface TavilyImageSearchResponse {
   images?: Array<string | { url: string }>;
 }
 
-// Reuses the Tavily web search API (already used for financial analysis web
-// search) with its image-search option, so no separate image-search API key
-// is needed.
+// Uses the Tavily web search API's image-search option.
 export async function searchSentenceImage(query: string): Promise<string | null> {
   const apiKey = process.env.TAVILY_API_KEY;
   if (!apiKey) {

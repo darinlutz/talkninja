@@ -134,7 +134,7 @@ export default function Solutions() {
 
                 {/* CTA Button */}
                 <Link
-                  href="/contact"
+                  href="/signup"
                   className="inline-block px-4 py-2 bg-gradient-to-r from-powder-500 to-powder-600 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-powder-500/50 transition-all transform hover:scale-105"
                 >
                   Learn More
@@ -187,10 +187,10 @@ export default function Solutions() {
             Let&apos;s explore how these solutions can address your specific business needs.
           </p>
           <Link
-            href="/contact"
+            href="/signup"
             className="inline-block px-4 py-2 bg-gradient-to-r from-powder-500 to-powder-600 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-powder-500/50 transition-all transform hover:scale-105"
           >
-            Schedule a Consultation
+            Get Started
           </Link>
         </div>
       </section>

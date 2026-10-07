@@ -1,30 +1,10 @@
-import BitcoinTicker from '@/components/BitcoinTicker';
-import OilTicker from '@/components/OilTicker';
-import TreasuryTicker from '@/components/TreasuryTicker';
-import YenTicker from '@/components/YenTicker';
-import GoldTicker from '@/components/GoldTicker';
 import Link from 'next/link';
 
 export default function Home() {
   return (
     <div className="w-full">
-      {/* Market Tickers Section */}
-      <section className="min-h-[40vh] pt-10 pb-5 bg-gradient-to-b from-white via-slate-50 to-slate-100 flex items-center justify-center px-2 sm:px-3 lg:px-4 relative overflow-hidden">
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-powder-500/5 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-0 left-0 w-96 h-96 bg-powder-600/5 rounded-full blur-3xl"></div>
-        </div>
-        <div className="relative z-10 w-full max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 items-center justify-center gap-6">
-          <BitcoinTicker />
-          <OilTicker />
-          <TreasuryTicker />
-          <YenTicker />
-          <GoldTicker />
-        </div>
-      </section>
-
       {/* Hero Section */}
-      <section className="py-6 bg-gradient-to-b from-slate-100 to-white flex items-center justify-center px-2 sm:px-3 lg:px-4">
+      <section className="pt-16 pb-6 bg-gradient-to-b from-slate-100 to-white flex items-center justify-center px-2 sm:px-3 lg:px-4">
         <div className="max-w-4xl mx-auto text-center">
           {/* Company Name */}
           <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold mb-6">
@@ -54,7 +34,7 @@ export default function Home() {
               Explore Solutions
             </Link>
             <Link
-              href="/contact"
+              href="/signup"
               className="px-4 py-2 bg-gradient-to-r from-powder-500 to-powder-600 text-white font-bold rounded-lg hover:shadow-lg
               hover:shadow-powder-500/50 transition-all transform hover:scale-105"
             >
@@ -126,10 +106,10 @@ export default function Home() {
             Let&apos;s discuss how Clarivex can help you automate, streamline, and scale your operations.
           </p>
           <Link
-            href="/contact"
+            href="/signup"
             className="inline-block px-4 py-2 bg-gradient-to-r from-powder-500 to-powder-600 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-powder-500/50 transition-all transform hover:scale-105"
           >
-            Contact Us Today
+            Get Started Today
           </Link>
         </div>
       </section>
