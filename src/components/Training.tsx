@@ -36,8 +36,6 @@ type TrainingItem = {
 interface TrainingProps {
   learnLanguage: Language;
   userLanguage: Language;
-  // Bumped by the page whenever the vocabulary sheet changes
-  sheetVersion?: number;
   // The user's belt progress; null when signed out
   progressByLanguage: ProgressMap | null;
   // Whether to show the Difficulty combobox (Admins only)
@@ -48,7 +46,6 @@ interface TrainingProps {
 export default function Training({
   learnLanguage,
   userLanguage,
-  sheetVersion = 0,
   progressByLanguage,
   showDifficulty,
   onProgressRecorded,
@@ -221,7 +218,6 @@ export default function Training({
           onDifficultyChange={setDifficulty}
           wordCategory={wordCategory}
           onWordCategoryChange={setWordCategory}
-          sheetVersion={sheetVersion}
           // Fixed once a session starts, since it's saved for this level
           disabled={count > 0}
         />

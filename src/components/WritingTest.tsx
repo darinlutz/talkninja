@@ -42,8 +42,6 @@ type Alignment = {
 interface WritingTestProps {
   learnLanguage: Language;
   userLanguage: Language;
-  // Bumped by the page whenever the vocabulary sheet changes
-  sheetVersion?: number;
   // The user's belt progress; null when signed out
   progressByLanguage: ProgressMap | null;
   // Whether to show the Difficulty combobox (Admins only)
@@ -54,7 +52,6 @@ interface WritingTestProps {
 export default function WritingTest({
   learnLanguage,
   userLanguage,
-  sheetVersion = 0,
   progressByLanguage,
   showDifficulty,
   onProgressRecorded,
@@ -431,7 +428,6 @@ export default function WritingTest({
           disabled={testInProgress}
           wordCategory={wordCategory}
           onWordCategoryChange={setWordCategory}
-          sheetVersion={sheetVersion}
         />
       )}
 

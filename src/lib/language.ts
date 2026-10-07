@@ -114,7 +114,7 @@ export class SheetFormatError extends Error {
   }
 }
 
-// Defaults to the sheet connected on the Setup tab, or the built-in one.
+// Defaults to the sheet connected on the Account page, or the built-in one.
 export async function fetchVocabulary(csvUrl?: string): Promise<VocabEntry[]> {
   const res = await fetch(csvUrl ?? (await getVocabSheetCsvUrl()), { cache: 'no-store' });
   if (res.status === 401 || res.status === 403 || res.status === 404) {

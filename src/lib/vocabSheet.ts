@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
 // Published-to-web CSV export of the user's personal Vietnamese vocabulary notes.
-// Used until a visitor connects their own sheet on the Language page's Setup tab.
+// Used until a visitor connects their own sheet on the Account page.
 const DEFAULT_VOCAB_SHEET_CSV_URL =
   'https://docs.google.com/spreadsheets/d/1IFBHrYHXXnM2QgdhRekn7OhQ7mIkun46IKQjO1agw_4/export?format=csv&gid=0';
 
@@ -81,7 +81,7 @@ export function connectedSheetResponse(sheet: VocabSheet, wordCount: number): Ne
   return response;
 }
 
-// The sheet this visitor connected on the Setup tab, if any.
+// The sheet this visitor connected on the Account page, if any.
 export async function getConnectedSheet(): Promise<VocabSheet | null> {
   try {
     const value = (await cookies()).get(VOCAB_SHEET_COOKIE)?.value;

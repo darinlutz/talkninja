@@ -4,7 +4,7 @@ import { connectedSheetResponse, parseSheetLink, sheetCsvUrl } from '@/lib/vocab
 import { getServiceAccountEmail, resetSheetToSample } from '@/lib/vocabSheetWriter';
 
 // Erases a wrongly formatted Google Sheet, fills it with sample words in the
-// vocabulary format, and connects it. The Setup tab confirms with the user first.
+// vocabulary format, and connects it. The Account page confirms with the user first.
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));

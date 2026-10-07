@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     try {
       wordCount = (await fetchVocabulary(sheetCsvUrl(sheet))).length;
     } catch (error) {
-      // The Setup tab offers to erase a wrongly formatted sheet and fill it with samples
+      // The Account page offers to erase a wrongly formatted sheet and fill it with samples
       if (error instanceof SheetFormatError) {
         return NextResponse.json(
           {

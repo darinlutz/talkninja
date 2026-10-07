@@ -21,7 +21,8 @@ The Language page (`src/app/language/page.tsx`) has these tabs:
 - **Reading / Writing** – free practice
 - **Translator** – translation with word-by-word alignment
 - **Friend** – conversation practice with an AI friend, with grammar checking
-- **Setup** – connect a Google Sheet of vocabulary (and repair its format)
+
+The Account page's **Setup** section connects a Google Sheet of vocabulary (and repairs its format).
 
 Accounts (signup, login, password reset) and Stripe subscriptions gate access.
 
@@ -45,7 +46,7 @@ npm run lint         # Run ESLint
 - `DATABASE_URL` - PostgreSQL connection string (users, sessions, password resets, belts/progress and test scores), e.g. `postgres://user:pass@host:5432/talkninja`. Passed to `pg` as-is. Required; tables are created on first use
 - `OPENAI_API_KEY` - OpenAI API key (translation, grammar checks, reading tests, AI friend, text-to-speech)
 - `TAVILY_API_KEY` - Tavily API key (image search for Training words)
-- `GOOGLE_SERVICE_ACCOUNT_EMAIL` / `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY` - Google Cloud service account (Sheets API enabled) that the Setup tab uses to erase a wrongly formatted vocabulary sheet and fill it with sample words. Users share their sheet with this email as Editor. Put the key on one line with `\n` for line breaks, in double quotes. Optional; without it the Setup tab only reports the format problem
+- `GOOGLE_SERVICE_ACCOUNT_EMAIL` / `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY` - Google Cloud service account (Sheets API enabled) that the Account page's Setup section uses to erase a wrongly formatted vocabulary sheet and fill it with sample words. Users share their sheet with this email as Editor. Put the key on one line with `\n` for line breaks, in double quotes. Optional; without it the Setup section only reports the format problem
 - `RESEND_API_KEY` - Resend email service API key
 - `RESEND_FROM_EMAIL` - Sender for password reset emails, on a domain verified in Resend. Defaults to `onboarding@resend.dev`, which only delivers to the Resend account owner
 - `SITE_URL` - Public site URL used in password reset links. Set in production; locally it falls back to the request's host

@@ -20,8 +20,6 @@ interface TestDifficultySelectorProps {
   onDifficultyChange: (difficulty: TestDifficulty) => void;
   wordCategory: WordCategory;
   onWordCategoryChange: (category: WordCategory) => void;
-  // Bumped by the page whenever the vocabulary sheet changes
-  sheetVersion?: number;
   // Locks both comboboxes, e.g. while a test is in progress
   disabled?: boolean;
 }
@@ -34,7 +32,6 @@ export default function TestDifficultySelector({
   onDifficultyChange,
   wordCategory,
   onWordCategoryChange,
-  sheetVersion = 0,
   disabled = false,
 }: TestDifficultySelectorProps) {
   const [wordCategoryCount, setWordCategoryCount] = useState<number | null>(null);
@@ -61,7 +58,7 @@ export default function TestDifficultySelector({
     return () => {
       isCurrent = false;
     };
-  }, [vocabCategory, sheetVersion]);
+  }, [vocabCategory]);
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
