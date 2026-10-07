@@ -21,7 +21,7 @@ The Language page (`src/app/language/page.tsx`) has these tabs:
 - **Translator** – translation with word-by-word alignment
 - **Friend** – conversation practice with an AI friend, with grammar checking
 
-The Account page's **Setup** section connects a Google Sheet of vocabulary (and repairs its format).
+The Account page's **Setup** section connects a Google Sheet of vocabulary (and repairs its format). Its **Customize Training Experience** section saves the user's own instructions (the `"CustomAgentInstructions"` table, one row per user, no row = none), which `wordPickerAgent.ts` uses to weight the words and sentence topics it picks.
 
 Accounts (signup, login, password reset) and Stripe subscriptions gate access.
 
@@ -78,6 +78,7 @@ src/
     ├── languageLevels.ts   # Belt rules (levels, order of activities, passing score)
     ├── languageProgress.ts # Saving/loading belt progress
     ├── vocabSheet.ts / vocabSheetWriter.ts  # Google Sheets vocabulary read/write
+    ├── wordPickerAgent.ts  # Decides which words/phrases each level shows (LEVEL_INSTRUCTIONS); other levels fall back to readingTest.ts sentences
     ├── translate.ts, grammarCheck.ts, readingTest.ts, wordAlignment.ts, friend.ts
     └── db.ts, users.ts, session.ts, accountStatus.ts
 ```

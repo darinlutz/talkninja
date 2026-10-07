@@ -9,6 +9,8 @@ import { beltName, continueTrainingHref, describeNextStep } from '@/lib/language
 import BeltIcon from '@/components/BeltIcon';
 import DeleteLanguageButton from '@/components/DeleteLanguageButton';
 import SheetSetup from '@/components/SheetSetup';
+import CustomAgentInstructionsForm from '@/components/CustomAgentInstructionsForm';
+import { getCustomAgentInstructions, MAX_CUSTOM_INSTRUCTIONS_LENGTH } from '@/lib/customAgentInstructions';
 
 // Green for a current subscription, red once it's canceled or expired,
 // blue (the site color) otherwise
@@ -33,7 +35,10 @@ function formatDate(iso: string | null): string {
 export default async function AccountPage() {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
-  const belts = await getLanguageProgress(user.id);
+  const [belts, customInstructions] = await Promise.all([
+    getLanguageProgress(user.id),
+    getCustomAgentInstructions(user.id),
+  ]);
   const isMonthly = user.accountStatus === ACCOUNT_STATUS.monthly;
   const canBuyMonthly = canBuy(user, 'monthly');
   const canBuyLifetime = canBuy(user, 'lifetime');
@@ -150,6 +155,14 @@ export default async function AccountPage() {
         <div className="bg-slate-50 rounded-xl border border-slate-200 p-6 sm:p-8">
           <h2 className="text-2xl font-bold text-dark-blue mb-2">Setup</h2>
           <SheetSetup />
+        </div>
+
+        <div className="bg-slate-50 rounded-xl border border-slate-200 p-6 sm:p-8">
+          <h2 className="text-2xl font-bold text-dark-blue mb-2">Customize Training Experience</h2>
+          <CustomAgentInstructionsForm
+            initialInstructions={customInstructions}
+            maxLength={MAX_CUSTOM_INSTRUCTIONS_LENGTH}
+          />
         </div>
       </div>
     </section>

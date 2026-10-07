@@ -4,6 +4,8 @@ import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { getCurrentUser } from "@/lib/session";
 import "./globals.css";
+// After globals.css: its rules join the base layer that globals.css declares
+import "./landing.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

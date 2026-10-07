@@ -2,7 +2,6 @@
 /* Keep the color-belt-lingo front-end's classes out of this app's CSS until it's merged in */
 @source not "../../color-belt-lingo";
 @import "tw-animate-css";
-@import "./landing.css";
 
 @custom-variant dark (&:is(.dark *));
 

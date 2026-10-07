@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import type { Language } from '@/lib/translate';
 import { LANGUAGES } from '@/lib/languages';
+import { getCurrentUser } from '@/lib/session';
+import { getCustomAgentInstructions } from '@/lib/customAgentInstructions';
+import { pickWritingItem } from '@/lib/wordPickerAgent';
 import {
-  generateTestSentence,
   isValidTestDifficulty,
   MAX_READING_TEST_DIFFICULTY,
   MIN_READING_TEST_DIFFICULTY,
@@ -37,7 +39,11 @@ export async function POST(request: Request) {
       ? body.avoid.filter((s: unknown): s is string => typeof s === 'string').slice(-20)
       : [];
 
-    const result = await generateTestSentence(learnLanguage, userLanguage, difficulty, avoid);
+    // Signed-in users' Account page instructions weight what's picked
+    const user = await getCurrentUser();
+    const customInstructions = user ? await getCustomAgentInstructions(user.id) : null;
+
+    const result = await pickWritingItem(learnLanguage, userLanguage, difficulty, avoid, customInstructions);
 
     return NextResponse.json({ success: true, ...result }, { status: 200 });
   } catch (error) {

@@ -182,6 +182,14 @@ export function ensureUserSchema(): Promise<void> {
         expires_at BIGINT NOT NULL
       )`);
       await client.query('CREATE INDEX IF NOT EXISTS password_resets_user_id_idx ON "PasswordResets" (user_id)');
+      // What a user wants their training to focus on (the Account page's
+      // "Customize Training Experience"), which the word picker agent weights
+      // its choices toward. No row means no custom instructions.
+      await client.query(`CREATE TABLE IF NOT EXISTS "CustomAgentInstructions" (
+        user_id INTEGER PRIMARY KEY REFERENCES "Users"(id) ON DELETE CASCADE,
+        instructions TEXT NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      )`);
     }).catch((error) => {
       schemaReady = null;
       throw error;
