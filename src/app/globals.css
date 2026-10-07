@@ -1,4 +1,10 @@
 @import "tailwindcss";
+/* Keep the color-belt-lingo front-end's classes out of this app's CSS until it's merged in */
+@source not "../../color-belt-lingo";
+@import "tw-animate-css";
+@import "./landing.css";
+
+@custom-variant dark (&:is(.dark *));
 
 @theme {
   --color-powder-50: #f0f9ff;
@@ -27,6 +33,79 @@
   --color-dark-blue: #1e3a8a;
 }
 
+/*
+ * The color-belt-lingo design system (landing page and src/components/ui).
+ * Maps the variables in :root below to utilities like bg-primary and
+ * text-muted-foreground. Its rounded-corner sizes and sans font are left
+ * out so the rest of the site keeps Tailwind's defaults.
+ */
+@theme inline {
+  --font-display: var(--font-space-grotesk), sans-serif;
+  --font-landing: var(--font-inter), sans-serif;
+  --shadow-brand: 0 8px 24px oklch(0.623 0.214 259.815 / 18%);
+  --color-word-time: var(--word-time);
+  --color-word-person: var(--word-person);
+  --color-word-action: var(--word-action);
+  --color-word-object: var(--word-object);
+  --color-ink-inverse: var(--ink-inverse);
+  --color-inverse-muted: var(--inverse-muted);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+}
+
+:root {
+  --radius: 0.75rem;
+  --background: oklch(0.977 0.016 248.7);
+  --foreground: oklch(0.208 0.042 265.755);
+  --card: oklch(1 0 0);
+  --card-foreground: var(--foreground);
+  --popover: var(--card);
+  --popover-foreground: var(--foreground);
+  --primary: oklch(0.546 0.245 262.881);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.951 0.026 248.4);
+  --secondary-foreground: var(--foreground);
+  --muted: var(--secondary);
+  --muted-foreground: oklch(0.5 0.032 260);
+  --accent: var(--secondary);
+  --accent-foreground: var(--primary);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: var(--card);
+  --border: oklch(0.92 0.026 248.4);
+  --input: var(--border);
+  --ring: var(--primary);
+  --word-time: oklch(0.53 0.21 265);
+  --word-person: oklch(0.57 0.19 22);
+  --word-action: oklch(0.48 0.17 312);
+  --word-object: oklch(0.48 0.12 175);
+  --belt-yellow: oklch(0.795 0.184 86.047);
+  --belt-green: oklch(0.723 0.219 149.579);
+  --belt-blue: oklch(0.623 0.214 259.815);
+  --ink-inverse: oklch(1 0 0);
+  --inverse-muted: oklch(0.77 0.03 250);
+  --inverse-border: oklch(1 0 0 / 15%);
+  --inverse-surface: oklch(1 0 0 / 4%);
+  --shadow-soft: 0 16px 56px oklch(0.208 0.042 265.755 / 5%);
+}
+
 @layer base {
   * {
     margin: 0;
@@ -36,11 +115,11 @@
 }
 
 :root {
-  --background: #ffffff;
-  --foreground: #1e3a8a;
+  --site-background: #ffffff;
+  --site-foreground: #1e3a8a;
   --powder-blue: #0284c7;
   --powder-light: #0369a1;
-  --accent: #1e40af;
+  --site-accent: #1e40af;
 }
 
 html {
@@ -48,8 +127,8 @@ html {
 }
 
 body {
-  background-color: var(--background);
-  color: var(--foreground);
+  background-color: var(--site-background);
+  color: var(--site-foreground);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
@@ -82,7 +161,7 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--background);
+  background: var(--site-background);
 }
 
 ::-webkit-scrollbar-thumb {
@@ -91,5 +170,5 @@ body {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--accent);
+  background: var(--site-accent);
 }

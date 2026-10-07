@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Python virtualenv (Streamlit ships huge bundled JS that exhausts ESLint's memory)
     ".venv/**",
+    // The color-belt-lingo front-end, kept as-is while it's merged into this app
+    "color-belt-lingo/**",
   ]),
 ]);
 

@@ -96,6 +96,7 @@ src/
 - Use Tailwind CSS utility classes (no CSS-in-JS)
 - Custom colors: `powder-500/600` (primary), `dark-blue` (text), `slate-*` (neutrals)
 - Gradients common in hero sections and CTAs: `bg-gradient-to-r from-powder-500 to-powder-600`
+- The landing page brought over from color-belt-lingo (`color-belt-lingo/`, being merged in) has its own design system: tokens like `bg-primary`, `text-muted-foreground` and `font-display` in `globals.css`, page styles in `src/app/landing.css` scoped under a `.landing` wrapper, and shadcn components in `src/components/ui/`
 
 ### API Route Patterns
 - Validate input early (required fields, supported language via `isLanguage`)
