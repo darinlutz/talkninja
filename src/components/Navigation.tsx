@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import NinjaSymbol from '@/components/NinjaSymbol';
+import SupportedLanguagesDialog from '@/components/SupportedLanguagesDialog';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
@@ -14,6 +15,7 @@ export default function Navigation({ user }: NavigationProps) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [languagesOpen, setLanguagesOpen] = useState(false);
 
   const toggleMenu = () => setIsOpen(!isOpen);
   const closeMenu = () => setIsOpen(false);
@@ -41,7 +43,7 @@ export default function Navigation({ user }: NavigationProps) {
             onClick={closeMenu}
           >
             <NinjaSymbol />
-            <span className="font-display text-2xl font-bold text-foreground">
+            <span translate="no" className="font-display text-2xl font-bold text-foreground">
               Talk<span className="text-primary">Ninja</span>
             </span>
           </Link>
@@ -62,13 +64,22 @@ export default function Navigation({ user }: NavigationProps) {
                 Pricing
               </Link>
             )}
+            <button
+              type="button"
+              onClick={() => setLanguagesOpen(true)}
+              className="px-3 py-2 text-dark-blue hover:text-powder-600 transition-colors font-medium whitespace-nowrap"
+            >
+              Supported Languages
+            </button>
           </div>
 
           {/* Desktop Account */}
           <div className="hidden md:flex items-center gap-3">
             {user ? (
               <>
-                <span className="text-dark-blue font-medium whitespace-nowrap">Welcome, {user.userName}</span>
+                <span className="text-dark-blue font-medium whitespace-nowrap">
+                  Welcome, <span translate="no">{user.userName}</span>
+                </span>
                 <Link
                   href="/account"
                   className="px-3 py-2 text-dark-blue hover:text-powder-600 transition-colors font-medium whitespace-nowrap"
@@ -144,6 +155,16 @@ export default function Navigation({ user }: NavigationProps) {
                 Pricing
               </Link>
             )}
+            <button
+              type="button"
+              onClick={() => {
+                closeMenu();
+                setLanguagesOpen(true);
+              }}
+              className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-dark-blue hover:text-powder-600 hover:bg-slate-100 transition-colors"
+            >
+              Supported Languages
+            </button>
             <div className="border-t border-slate-200 pt-2 mt-2">
               {user ? (
                 <>
@@ -155,7 +176,9 @@ export default function Navigation({ user }: NavigationProps) {
                     Account
                   </Link>
                   <div className="flex items-center justify-between px-3 py-2">
-                    <span className="text-base font-medium text-dark-blue">Welcome, {user.userName}</span>
+                    <span className="text-base font-medium text-dark-blue">
+                      Welcome, <span translate="no">{user.userName}</span>
+                    </span>
                     <button
                       onClick={handleLogout}
                       disabled={loggingOut}
@@ -187,6 +210,8 @@ export default function Navigation({ user }: NavigationProps) {
           </div>
         </div>
       )}
+
+      <SupportedLanguagesDialog open={languagesOpen} onOpenChange={setLanguagesOpen} />
     </nav>
   );
 }

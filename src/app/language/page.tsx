@@ -12,7 +12,7 @@ import LanguageProgressBanner from '@/components/LanguageProgressBanner';
 import type { Language } from '@/lib/translate';
 import type { GrammarToken } from '@/lib/grammarCheck';
 import type { WordCategory } from '@/lib/language';
-import { DEFAULT_LEARN_LANGUAGE, DEFAULT_USER_LANGUAGE, isLanguage } from '@/lib/languages';
+import { DEFAULT_LEARN_LANGUAGE, DEFAULT_USER_LANGUAGE, isLanguage, LANGUAGE_CODES } from '@/lib/languages';
 import { nextStepTab, startingProgress, type RecordedActivity } from '@/lib/languageLevels';
 import {
   DIFFICULTY_LEVELS,
@@ -40,17 +40,6 @@ const WORD_CATEGORIES: { value: WordCategory; label: string }[] = [
   { value: 'timeRelated', label: 'Time Related' },
   { value: 'verbs', label: 'Verbs' },
 ];
-
-const LANGUAGE_CODES: Record<Language, string> = {
-  Arabic: 'ar',
-  English: 'en',
-  German: 'de',
-  Japanese: 'ja',
-  Korean: 'ko',
-  Portuguese: 'pt',
-  Spanish: 'es',
-  Vietnamese: 'vi',
-};
 
 async function translateText(text: string, from: Language, to: Language): Promise<string> {
   if (!text.trim() || from === to) return text;
@@ -1442,7 +1431,12 @@ function Language() {
 
                   {/* Chat History */}
                   <div className="flex flex-col sm:flex-row gap-3">
-                    <div className="flex-1 space-y-3 max-h-96 overflow-y-auto p-4 bg-white border border-slate-300 rounded-lg">
+                    {/* The conversation is practice content, so it isn't
+                        shown in the "I speak" language */}
+                    <div
+                      translate="no"
+                      className="flex-1 space-y-3 max-h-96 overflow-y-auto p-4 bg-white border border-slate-300 rounded-lg"
+                    >
                       {friendMessages.length === 0 ? (
                         <p className="text-slate-400 text-sm">Press Start Chat to begin.</p>
                       ) : (

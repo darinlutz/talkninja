@@ -248,12 +248,14 @@ export async function createUser(input: {
   userName: string;
   emailAddress: string;
   password: string;
+  // Picked on the signup page; changed later on the Account page's
+  // Language Setup
+  nativeLanguage: Language;
+  activeLearningLanguage: Language;
 }): Promise<User> {
   await ensureUserSchema();
   const passwordHash = await hashPassword(input.password);
   try {
-    // New users start out as English speakers learning Spanish; they can
-    // change either on the Language page
     const rows = await query(
       `INSERT INTO "Users" (user_name, email_address, password, account_status, signup_date, role,
          native_language, active_learning_language)
@@ -266,8 +268,8 @@ export async function createUser(input: {
         new Date().toISOString(),
         ROLES.user,
         ACCOUNT_STATUS.unsubscribed,
-        'English' satisfies Language,
-        'Spanish' satisfies Language,
+        input.nativeLanguage,
+        input.activeLearningLanguage,
       ]
     );
     return rowToUser(rows[0]);

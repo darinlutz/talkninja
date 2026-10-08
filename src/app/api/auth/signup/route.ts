@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createSession } from '@/lib/session';
 import { createUser, EmailTakenError } from '@/lib/users';
+import { isLanguage } from '@/lib/languages';
+import { startLanguage } from '@/lib/languageProgress';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -20,10 +22,25 @@ export async function POST(request: Request) {
     if (password.length < 8) {
       return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
     }
+    if (!isLanguage(body.nativeLanguage) || !isLanguage(body.activeLearningLanguage)) {
+      return NextResponse.json({ error: 'Pick a language you speak and one to learn' }, { status: 400 });
+    }
 
-    const user = await createUser({ userName, emailAddress, password });
+    const user = await createUser({
+      userName,
+      emailAddress,
+      password,
+      nativeLanguage: body.nativeLanguage,
+      activeLearningLanguage: body.activeLearningLanguage,
+    });
     // A new account stays logged in, as if "Remember me" were checked
     await createSession(user.id, true);
+    // The language to learn starts at No Belt on the Account page, as when
+    // it's picked in Language Setup. Without it, it's added with the first
+    // Training or test result instead.
+    await startLanguage(user.id, body.activeLearningLanguage).catch((error) =>
+      console.error('Signup language start error:', error)
+    );
     return NextResponse.json({ user: { userName: user.userName } }, { status: 201 });
   } catch (error) {
     if (error instanceof EmailTakenError) {

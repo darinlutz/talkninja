@@ -35,9 +35,14 @@ export default function LanguageSetupForm({
     }
   };
 
+  // The whole site is shown in the "I speak" language, so refresh the page
+  // to switch it over
   const handleUserLanguageChange = (language: Language) => {
     setUserLanguage(language);
-    save(() => saveLanguagePreferences({ nativeLanguage: language }));
+    save(async () => {
+      await saveLanguagePreferences({ nativeLanguage: language });
+      router.refresh();
+    });
   };
 
   // Picking a language to learn also adds it to the Languages list below at

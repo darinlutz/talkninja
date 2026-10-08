@@ -57,7 +57,7 @@ export default async function AccountPage() {
           <dl className="divide-y divide-slate-200 bg-white rounded-lg border border-slate-200">
             <div className="flex justify-between gap-4 px-4 py-3">
               <dt className="text-sm font-medium text-slate-500">Name</dt>
-              <dd className="text-dark-blue font-medium text-right">
+              <dd translate="no" className="text-dark-blue font-medium text-right">
                 {user.userName}
               </dd>
             </div>

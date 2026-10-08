@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter, Space_Grotesk } from "next/font/google";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
+import PageTranslator from "@/components/PageTranslator";
 import { getCurrentUser } from "@/lib/session";
 import { ACCOUNT_STATUS } from "@/lib/accountStatus";
 import "./globals.css";
@@ -59,6 +60,8 @@ export default async function RootLayout({
           {children}
         </main>
         <Footer />
+        {/* Shows the site in the user's "I speak" language */}
+        <PageTranslator language={user?.nativeLanguage ?? null} />
       </body>
     </html>
   );

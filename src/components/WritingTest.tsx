@@ -325,6 +325,7 @@ export default function WritingTest({
             <div
               ref={mistakesRef}
               aria-hidden="true"
+              translate="no"
               className="absolute inset-0 px-4 py-3 bg-white border-2 border-transparent rounded-lg text-dark-blue whitespace-pre-wrap break-words overflow-hidden"
             >
               {markMismatchedLetters(userInput, wordText).map((run, i) => (

@@ -3,12 +3,19 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+// Pages that end without the footer
+const PAGES_WITHOUT_FOOTER = [
+  // The landing page (home) ends with its own pricing section instead
+  '/',
+  '/language',
+  '/pricing',
+];
+
 export default function Footer() {
   const pathname = usePathname();
   const currentYear = new Date().getFullYear();
 
-  // The landing page (home) ends with its own pricing section instead
-  if (pathname === '/') return null;
+  if (PAGES_WITHOUT_FOOTER.includes(pathname)) return null;
 
   return (
     <footer className="bg-slate-50 border-t border-slate-200 text-dark-blue">

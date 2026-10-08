@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import ForgotPasswordForm from './ForgotPasswordForm';
+import { DEFAULT_LEARN_LANGUAGE, DEFAULT_USER_LANGUAGE, LANGUAGES, type Language } from '@/lib/languages';
 
 const inputClass =
   'w-full px-4 py-3 bg-white border border-slate-300 rounded-lg text-dark-blue placeholder-slate-400 focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors';
@@ -14,12 +15,14 @@ export default function SignupForm() {
     userName: '',
     emailAddress: '',
     password: '',
+    nativeLanguage: DEFAULT_USER_LANGUAGE as Language,
+    activeLearningLanguage: DEFAULT_LEARN_LANGUAGE as Language,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [forgotPassword, setForgotPassword] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
@@ -100,6 +103,49 @@ export default function SignupForm() {
           className={inputClass}
         />
       </div>
+
+      {/* Changed later on the Account page's Language Setup */}
+      <div className="grid gap-6 sm:grid-cols-2">
+        <div>
+          <label htmlFor="nativeLanguage" className="block text-sm font-medium text-dark-blue mb-2">
+            I speak *
+          </label>
+          <select
+            id="nativeLanguage"
+            name="nativeLanguage"
+            value={formData.nativeLanguage}
+            onChange={handleChange}
+            required
+            className={inputClass}
+          >
+            {LANGUAGES.map((lang) => (
+              <option key={lang} value={lang}>
+                {lang}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="activeLearningLanguage" className="block text-sm font-medium text-dark-blue mb-2">
+            and want to learn *
+          </label>
+          <select
+            id="activeLearningLanguage"
+            name="activeLearningLanguage"
+            value={formData.activeLearningLanguage}
+            onChange={handleChange}
+            required
+            className={inputClass}
+          >
+            {LANGUAGES.map((lang) => (
+              <option key={lang} value={lang}>
+                {lang}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <p className="-mt-3 text-sm text-slate-500">You can change these anytime on your Account page.</p>
 
       {error && (
         <p className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{error}</p>

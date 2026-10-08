@@ -279,7 +279,7 @@ export default function ReadingTest({
                 {solved && choice.correct && translationSegments.length > 0 ? (
                   <ColoredSegments segments={translationSegments} />
                 ) : (
-                  choice.text
+                  <span translate="no">{choice.text}</span>
                 )}
               </button>
             ))}

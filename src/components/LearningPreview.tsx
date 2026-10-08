@@ -63,7 +63,9 @@ export default function LearningPreview({ onBelts }: { onBelts: () => void }) {
               }}
             >
               {Object.keys(samples).map((item) => (
-                <option key={item}>{item}</option>
+                <option key={item} value={item}>
+                  {item}
+                </option>
               ))}
             </select>
           </label>
@@ -90,7 +92,9 @@ export default function LearningPreview({ onBelts }: { onBelts: () => void }) {
               </Button>
             </div>
           </div>
-          <div className="colored-sentence">
+          {/* The sample sentences stay as written (not shown in the user's
+              "I speak" language), like the practice content they preview */}
+          <div className="colored-sentence" translate="no">
             {ordered.map((i) => (
               <span
                 key={i}
@@ -102,7 +106,7 @@ export default function LearningPreview({ onBelts }: { onBelts: () => void }) {
               </span>
             ))}
           </div>
-          <div className="translation-sentence">
+          <div className="translation-sentence" translate="no">
             {sample.meanings.map((word, i) => (
               <span key={i} className={`${wordColors[i]} ${dimmed(i)}`}>
                 {word}{' '}
@@ -145,13 +149,15 @@ export default function LearningPreview({ onBelts }: { onBelts: () => void }) {
             </div>
             <div className="chat-line">
               <NinjaSymbol />
-              <div className="friend-message">
+              <div className="friend-message" translate="no">
                 <p>{sample.question}</p>
                 <p className="message-translation">{sample.translation}</p>
               </div>
             </div>
             <div className="chat-line user-line">
-              <div className="user-message">{sample.reply}</div>
+              <div className="user-message" translate="no">
+                {sample.reply}
+              </div>
               <span className="user-avatar">You</span>
             </div>
             <div className="sample-composer">

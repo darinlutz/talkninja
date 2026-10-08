@@ -164,7 +164,7 @@ export default function Training({
             ) : item.segments ? (
               <ColoredSegments segments={item.segments.sentenceSegments} />
             ) : (
-              item.text
+              <span translate="no">{item.text}</span>
             )}
           </div>
           <div className="flex flex-row sm:flex-col gap-3 flex-shrink-0 sm:self-start">
@@ -201,7 +201,7 @@ export default function Training({
           ) : item.segments ? (
             <ColoredSegments segments={item.segments.translationSegments} />
           ) : (
-            item.translation
+            <span translate="no">{item.translation}</span>
           )}
         </div>
       </div>
