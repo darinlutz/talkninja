@@ -1,14 +1,12 @@
 'use client';
 
 import { Suspense, useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { ArrowUpDown, Eye, EyeOff } from 'lucide-react';
 import LanguageForm from '@/components/LanguageForm';
 import ReadingTest from '@/components/ReadingTest';
 import Training from '@/components/Training';
 import WritingTest from '@/components/WritingTest';
-import LanguageProgressBanner from '@/components/LanguageProgressBanner';
 import type { Language } from '@/lib/translate';
 import type { GrammarToken } from '@/lib/grammarCheck';
 import type { WordCategory } from '@/lib/language';
@@ -251,24 +249,6 @@ function Language() {
   }
   // Nothing is shown in place of a test until it's been checked
   const shownTab: Tab | null = testToCheck ? null : activeTab;
-
-  // Bumped by the banner's "Next step" link to remount the tab content, so
-  // its Difficulty resets to the level being worked on
-  const [tabContentKey, setTabContentKey] = useState(0);
-  const tabsSectionRef = useRef<HTMLElement>(null);
-
-  // The banner's "Next step" link: opens that step's tab (Training, Reading
-  // Test or Writing Test) for the language being learned, like the Account
-  // page's "Continue training" link
-  const handleNextStepClick = () => {
-    const progress = progressByLanguage?.[learnLanguage] ?? startingProgress(learnLanguage);
-    const tab = TABS.find((t) => t === nextStepTab(progress));
-    if (!tab) return;
-    setActiveTab(tab);
-    setTabContentKey((key) => key + 1);
-    // Wait for the new tab to render before scrolling
-    requestAnimationFrame(() => tabsSectionRef.current?.scrollIntoView({ behavior: 'smooth' }));
-  };
 
   // A tab saved a Training/test result; keep the banner and tabs current
   const handleProgressRecorded = (result: RecordedActivity) => {
@@ -906,45 +886,11 @@ function Language() {
 
   return (
     <div className="w-full">
-      {/* Header Section */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-slate-100 to-white border-b border-slate-200">
-        <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 pb-2 bg-gradient-to-r from-powder-600 via-powder-500 to-powder-600 bg-clip-text text-transparent">
-            Language
-          </h1>
-          <p className="text-lg text-slate-600">
-            Practice {learnLanguage} with a new sentence built from words you already know.
-          </p>
-          <p className="mt-4 text-sm text-dark-blue">
-            I speak <span className="font-semibold">{userLanguage}</span> and want to learn{' '}
-            <span className="font-semibold">{learnLanguage}</span>.{' '}
-            <Link href="/account" className="font-semibold text-powder-600 hover:underline">
-              Change in Language Setup
-            </Link>
-          </p>
-          {progressByLanguage !== undefined && (
-            <div className="mt-4">
-              <LanguageProgressBanner
-                progress={
-                  progressByLanguage &&
-                  (progressByLanguage[learnLanguage] ?? startingProgress(learnLanguage))
-                }
-                onNextStepClick={handleNextStepClick}
-              />
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Language Practice Content */}
-      <section
-        ref={tabsSectionRef}
-        className="py-16 px-6 sm:px-10 lg:px-16 bg-white flex flex-col items-center scroll-mt-4"
-      >
+      {/* Just the open tab: the languages and belt banner are on My Dojo,
+          whose cards and "Next step" link open the tabs here */}
+      <section className="py-12 px-6 sm:px-10 lg:px-16 bg-white flex flex-col items-center">
         <div className="w-full max-w-5xl">
-          {/* Tab Content (re-keyed by "Next step" so the tab starts fresh at
-              the user's working level) */}
-          <div key={tabContentKey} className="bg-slate-50 rounded-xl border border-slate-200 p-8">
+          <div className="bg-slate-50 rounded-xl border border-slate-200 p-8">
             {shownTab === null && <p className="text-slate-500">Loading…</p>}
 
             {/* Training Tab */}

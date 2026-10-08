@@ -1,7 +1,11 @@
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import DojoIllustration, { type DojoScene } from '@/components/DojoIllustration';
+import LanguageProgressBanner from '@/components/LanguageProgressBanner';
 import { getCurrentUser } from '@/lib/session';
+import { getLanguageProgress } from '@/lib/languageProgress';
+import { startingProgress } from '@/lib/languageLevels';
+import { DEFAULT_LEARN_LANGUAGE, DEFAULT_USER_LANGUAGE } from '@/lib/languages';
 
 // The practice tabs, each opening its tab on the Language page (?tab=)
 const PRACTICE: { scene: DojoScene; title: string; text: string; tab: string }[] = [
@@ -33,6 +37,15 @@ const PRACTICE: { scene: DojoScene; title: string; text: string; tab: string }[]
 
 export default async function DojoPage() {
   const user = await getCurrentUser();
+  // The Account page's Language Setup, or the defaults the Language page uses
+  const userLanguage = user?.nativeLanguage ?? DEFAULT_USER_LANGUAGE;
+  const learnLanguage = user?.activeLearningLanguage ?? DEFAULT_LEARN_LANGUAGE;
+  // The belt and next step in the language being learned; null when signed
+  // out (progress isn't saved)
+  const progress = user
+    ? ((await getLanguageProgress(user.id)).find((entry) => entry.language === learnLanguage) ??
+      startingProgress(learnLanguage))
+    : null;
 
   return (
     <section className="py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-slate-100 to-white">
@@ -42,15 +55,18 @@ export default async function DojoPage() {
             My Dojo
           </h1>
           <p className="mt-2 text-lg text-slate-600">
-            {user?.activeLearningLanguage ? (
-              <>
-                Pick how you want to practice <span className="font-semibold">{user.activeLearningLanguage}</span>{' '}
-                today.
-              </>
-            ) : (
-              'Pick how you want to practice today.'
-            )}
+            Pick how you want to practice <span className="font-semibold">{learnLanguage}</span> today.
           </p>
+          <p className="mt-4 text-sm text-dark-blue">
+            I speak <span className="font-semibold">{userLanguage}</span> and want to learn{' '}
+            <span className="font-semibold">{learnLanguage}</span>.{' '}
+            <Link href="/account" className="font-semibold text-powder-600 hover:underline">
+              Change in Language Setup
+            </Link>
+          </p>
+          <div className="mt-4">
+            <LanguageProgressBanner progress={progress} />
+          </div>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">

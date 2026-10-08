@@ -6,8 +6,8 @@ export const ACCOUNT_STATUS = {
   monthly: 'Monthly Subscription',
   lifetime: 'Lifetime Subscription',
   // Monthly subscription canceled (here, in the Stripe Dashboard, or after
-  // failed payments)
-  canceled: 'Canceled',
+  // failed payments). Was 'Canceled'; ensureUserSchema converts old rows.
+  canceled: 'Cancelled',
   // Monthly subscription that wasn't renewed by its end date
   expired: 'Expired',
 } as const;

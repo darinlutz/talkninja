@@ -87,6 +87,9 @@ export default function PricingPlans({
                   disabled={!price}
                   variant={info.plan === 'lifetime' ? 'dojo' : 'inverse'}
                   size="hero"
+                  // The dojo variant is a pill; both plans' buttons get the
+                  // same rounded corners
+                  className="rounded-xl"
                 >
                   {upgrade ? `Upgrade to ${info.name}` : `Buy ${info.name}`}
                 </Button>

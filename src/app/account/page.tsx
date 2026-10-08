@@ -77,7 +77,9 @@ export default async function AccountPage() {
                 {formatDate(user.signupDate)}
               </dd>
             </div>
-            {isMonthly && (
+            {/* When the month paid for ends: the next renewal while Monthly,
+                and when the subscription ends once it's cancelled */}
+            {(isMonthly || (user.accountStatus === ACCOUNT_STATUS.canceled && user.subscriptionEndDate)) && (
               <div className="flex justify-between gap-4 px-4 py-3">
                 <dt className="text-sm font-medium text-slate-500">Subscription End Date</dt>
                 <dd className="text-dark-blue font-medium text-right">
@@ -156,7 +158,7 @@ export default async function AccountPage() {
           ) : (
             <p className="bg-white rounded-lg border border-slate-200 px-4 py-3 text-slate-600">
               You haven&apos;t started a language yet.{' '}
-              <Link href="/language" className="font-semibold text-powder-600 hover:underline">
+              <Link href="/dojo" className="font-semibold text-powder-600 hover:underline">
                 Start learning
               </Link>
             </p>
