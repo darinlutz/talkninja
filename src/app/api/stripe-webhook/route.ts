@@ -1,12 +1,8 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import {
-  grantLifetimeAccess,
-  renewSubscription,
-  setStatusBySubscriptionId,
-  startSubscription,
-} from '@/lib/users';
+import { renewSubscription, setStatusBySubscriptionId } from '@/lib/users';
 import { ACCOUNT_STATUS } from '@/lib/accountStatus';
+import { fulfillCheckoutSession } from '@/lib/checkoutFulfillment';
 
 export async function POST(request: Request) {
   // Check if Stripe keys are configured
@@ -52,42 +48,8 @@ export async function POST(request: Request) {
       case 'checkout.session.completed':
       // Delayed payment methods (e.g. bank debits) confirm Lifetime payments here
       case 'checkout.session.async_payment_succeeded': {
-        const session = event.data.object;
-        const userId = Number(session.client_reference_id);
-        if (session.mode === 'payment') {
-          if (session.metadata?.plan !== 'lifetime' || !Number.isInteger(userId)) {
-            console.warn('Payment session not linked to a Lifetime purchase:', session.id);
-            break;
-          }
-          // A delayed payment completes the session before the money arrives
-          if (session.payment_status !== 'paid') break;
-          const previousSubscriptionId = await grantLifetimeAccess(
-            userId,
-            typeof session.customer === 'string' ? session.customer : null
-          );
-          // A monthly subscriber upgraded: stop charging them monthly
-          if (previousSubscriptionId) {
-            try {
-              await stripe.subscriptions.cancel(previousSubscriptionId);
-            } catch (error) {
-              // e.g. it was already canceled; the account is Lifetime either way
-              console.error('Failed to cancel monthly subscription after Lifetime purchase:', error);
-            }
-          }
-          break;
-        }
-        if (event.type !== 'checkout.session.completed') break;
-        if (
-          session.mode !== 'subscription' ||
-          !Number.isInteger(userId) ||
-          typeof session.customer !== 'string' ||
-          typeof session.subscription !== 'string'
-        ) {
-          console.warn('Checkout session not linked to a user:', session.id);
-          break;
-        }
-        // Subscription mode sessions only complete once the first payment succeeds
-        await startSubscription(userId, session.customer, session.subscription);
+        // Shared with the Thank You page, which usually gets there first
+        await fulfillCheckoutSession(stripe, event.data.object);
         break;
       }
       // Monthly renewal paid: extend the subscription another month

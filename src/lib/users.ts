@@ -370,9 +370,11 @@ export async function startSubscription(
 ): Promise<void> {
   await ensureUserSchema();
   await query(
+    // Only once per subscription: the Thank You page and the webhook both
+    // call this, and a second call mustn't restart the month
     `UPDATE "Users" SET stripe_customer_id = $1, stripe_subscription_id = $2, account_status = $5,
        subscription_end_date = $3
-     WHERE id = $4`,
+     WHERE id = $4 AND stripe_subscription_id IS DISTINCT FROM $2`,
     [stripeCustomerId, stripeSubscriptionId, oneMonthFrom(), userId, ACCOUNT_STATUS.monthly]
   );
 }

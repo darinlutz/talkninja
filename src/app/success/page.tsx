@@ -1,13 +1,24 @@
-import Link from 'next/link';
 import Stripe from 'stripe';
+import { fulfillCheckoutSession } from '@/lib/checkoutFulfillment';
 
+// Looks the session up in Stripe (so it can't be faked) and, once it's paid,
+// updates the account straight away rather than waiting for the webhook
 async function getCheckoutSession(sessionId: string | undefined) {
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
   if (!sessionId || !stripeSecretKey) return null;
 
   try {
     const stripe = new Stripe(stripeSecretKey);
-    return await stripe.checkout.sessions.retrieve(sessionId);
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    if (session.status === 'complete') {
+      try {
+        await fulfillCheckoutSession(stripe, session);
+      } catch (error) {
+        // The webhook will still apply it
+        console.error(`Updating the account for checkout ${session.id} failed:`, error);
+      }
+    }
+    return session;
   } catch (error) {
     console.error('Stripe session lookup error:', error);
     return null;
@@ -45,12 +56,14 @@ export default async function SuccessPage({
             : "We couldn't confirm your payment. If you were charged, please contact us."}
         </p>
 
-        <Link
+        {/* A full page load, so the nav bar also reflects the new plan
+            (e.g. Pricing disappears for Lifetime) */}
+        <a
           href="/account"
           className="inline-block px-6 py-3 rounded-lg font-semibold text-white bg-gradient-to-r from-powder-500 to-powder-600 hover:from-powder-600 hover:to-powder-500 transition-colors"
         >
           Back to My Account
-        </Link>
+        </a>
       </div>
     </section>
   );
