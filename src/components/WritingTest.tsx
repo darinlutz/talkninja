@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Eye, EyeOff } from 'lucide-react';
 import type { Language } from '@/lib/translate';
 import type { WordCategory } from '@/lib/language';
@@ -14,6 +15,7 @@ import {
   fetchTestItem,
   MALE_VOICE,
   markMismatchedLetters,
+  PASSING_SCORE,
   playChime,
   playError,
   speakText,
@@ -56,6 +58,7 @@ export default function WritingTest({
   showDifficulty,
   onProgressRecorded,
 }: WritingTestProps) {
+  const router = useRouter();
   // The Account page's "and want to learn" and "I speak" languages
   const wordLanguage = learnLanguage;
   const answerLanguage = userLanguage;
@@ -190,9 +193,15 @@ export default function WritingTest({
   };
 
   // Start Test -> Next Question (x9) -> Finish Test -> score, after which
-  // the button starts a new test.
+  // the button is "Return to Dojo" on a pass, or "Try Writing Test Again"
+  // on a fail, which resets and starts a new test.
   const handleTestButton = async () => {
     const finished = score !== null;
+
+    if (finished && score >= PASSING_SCORE) {
+      router.push('/dojo');
+      return;
+    }
 
     if (!finished && count >= TEST_LENGTH) {
       const finalScore = Math.round((correctCount / TEST_LENGTH) * 100);
@@ -214,11 +223,16 @@ export default function WritingTest({
     }
   };
 
-  const buttonLabel = !testInProgress
-    ? 'Start Test'
-    : count < TEST_LENGTH
-      ? 'Next Question'
-      : 'Finish Test';
+  const buttonLabel =
+    score !== null
+      ? score >= PASSING_SCORE
+        ? 'Return to Dojo'
+        : 'Try Writing Test Again'
+      : !testInProgress
+        ? 'Start Test'
+        : count < TEST_LENGTH
+          ? 'Next Question'
+          : 'Finish Test';
 
   const handleSubmit = () => {
     if (!wordText || itemDone || score !== null) return;
@@ -430,8 +444,9 @@ export default function WritingTest({
         <button
           type="button"
           onClick={handleTestButton}
-          // Each item must be matched or use up its chances before moving on
-          disabled={status === 'loading' || (testInProgress && !itemDone)}
+          // Each item must be matched or use up its chances before moving on,
+          // and the score saved before leaving for My Dojo
+          disabled={status === 'loading' || (testInProgress && !itemDone) || progressRecorder.outcome === 'saving'}
           className={`w-full ${buttonClassName}`}
         >
           {status === 'loading' ? (

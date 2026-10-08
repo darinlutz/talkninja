@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import type { Language } from '@/lib/translate';
 import type { AlignedSegment } from '@/lib/wordAlignment';
 import ColoredSegments from '@/components/ColoredSegments';
@@ -10,6 +11,7 @@ import {
   FEMALE_VOICE,
   MALE_VOICE,
   playChime,
+  PASSING_SCORE,
   playError,
   speakText,
   TEST_LENGTH,
@@ -51,6 +53,7 @@ export default function ReadingTest({
   showDifficulty,
   onProgressRecorded,
 }: ReadingTestProps) {
+  const router = useRouter();
   const [difficulty, setDifficulty] = useState(1);
   useWorkingLevelDefault(progressFor(progressByLanguage, learnLanguage), setDifficulty);
   const progressRecorder = useProgressRecorder(onProgressRecorded);
@@ -142,9 +145,15 @@ export default function ReadingTest({
   };
 
   // Start Test -> Next Question (x9) -> Finish Test -> score, after which
-  // the button starts a new test.
+  // the button is "Return to Dojo" on a pass, or "Try Reading Test Again"
+  // on a fail, which resets and starts a new test.
   const handleTestButton = async () => {
     const finished = score !== null;
+
+    if (finished && score >= PASSING_SCORE) {
+      router.push('/dojo');
+      return;
+    }
 
     if (!finished && count >= TEST_LENGTH) {
       const finalScore = Math.round((correctCount / TEST_LENGTH) * 100);
@@ -167,11 +176,16 @@ export default function ReadingTest({
   };
 
   const testInProgress = count > 0 && score === null;
-  const buttonLabel = !testInProgress
-    ? 'Start Test'
-    : count < TEST_LENGTH
-      ? 'Next Question'
-      : 'Finish Test';
+  const buttonLabel =
+    score !== null
+      ? score >= PASSING_SCORE
+        ? 'Return to Dojo'
+        : 'Try Reading Test Again'
+      : !testInProgress
+        ? 'Start Test'
+        : count < TEST_LENGTH
+          ? 'Next Question'
+          : 'Finish Test';
 
   const handleChoiceClick = (index: number) => {
     if (solved || score !== null) return;
@@ -325,8 +339,9 @@ export default function ReadingTest({
         <button
           type="button"
           onClick={handleTestButton}
-          // Each question must be answered before moving on
-          disabled={status === 'loading' || (testInProgress && !solved)}
+          // Each question must be answered before moving on, and the score
+          // saved before leaving for My Dojo
+          disabled={status === 'loading' || (testInProgress && !solved) || progressRecorder.outcome === 'saving'}
           className="w-full px-4 py-2 bg-gradient-to-r from-powder-500 to-powder-600 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-powder-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 disabled:hover:scale-100"
         >
           {status === 'loading' ? (

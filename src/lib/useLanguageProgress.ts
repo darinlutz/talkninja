@@ -32,7 +32,9 @@ export function useWorkingLevelDefault(progress: LanguageProgress | null, apply:
 }
 
 // Saves a finished Training/test and reports what it meant for the user's
-// progress (shown with <ProgressUpdate>).
+// progress (shown with <ProgressUpdate>). record() resolves to that outcome
+// once saving is done, so callers can wait for it (e.g. before going back
+// to My Dojo).
 export function useProgressRecorder(onRecorded: (result: RecordedActivity) => void) {
   const [outcome, setOutcome] = useState<ProgressOutcome | null>(null);
 
@@ -41,15 +43,17 @@ export function useProgressRecorder(onRecorded: (result: RecordedActivity) => vo
     level: number | null;
     activity: LanguageActivity;
     score?: number;
-  }) => {
+  }): Promise<ProgressOutcome> => {
     setOutcome('saving');
+    let result: ProgressOutcome;
     try {
-      const result = await recordLanguageResult(input);
-      setOutcome(result);
+      result = await recordLanguageResult(input);
       if (result !== 'signedOut') onRecorded(result);
     } catch (error) {
-      setOutcome({ error: error instanceof Error ? error.message : 'Failed to save your progress' });
+      result = { error: error instanceof Error ? error.message : 'Failed to save your progress' };
     }
+    setOutcome(result);
+    return result;
   };
 
   return { outcome, record, clear: () => setOutcome(null) };

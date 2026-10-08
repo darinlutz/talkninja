@@ -1,6 +1,8 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import type { Language } from '@/lib/translate';
 import type { WordCategory } from '@/lib/language';
 import type { AlignedSegment } from '@/lib/wordAlignment';
@@ -50,6 +52,7 @@ export default function Training({
   showDifficulty,
   onProgressRecorded,
 }: TrainingProps) {
+  const router = useRouter();
   const [difficulty, setDifficulty] = useState<TestDifficulty>('words');
   useWorkingLevelDefault(progressFor(progressByLanguage, learnLanguage), (level) =>
     setDifficulty(String(level) as TestDifficulty)
@@ -86,9 +89,12 @@ export default function Training({
   };
 
   const handleNext = async () => {
+    // Complete Training: save it, then back to My Dojo, whose banner shows
+    // the next step (stays here if saving failed, to show why)
     if (count >= TRAINING_LENGTH) {
       setCompleted(true);
-      progressRecorder.record({ ...sessionInfo.current, activity: 'training' });
+      const outcome = await progressRecorder.record({ ...sessionInfo.current, activity: 'training' });
+      if (typeof outcome === 'string' || !('error' in outcome)) router.push('/dojo');
       return;
     }
     if (count === 0) {
@@ -226,8 +232,19 @@ export default function Training({
       <ProgressUpdate outcome={progressRecorder.outcome} />
 
       {completed ? (
-        <div className="p-4 rounded-lg bg-green-100 border border-green-300 text-green-800 font-semibold text-center">
-          {completedLevel === null ? 'Training complete' : `Training complete for Level ${completedLevel}`}
+        <div className="space-y-3">
+          <div className="p-4 rounded-lg bg-green-100 border border-green-300 text-green-800 font-semibold text-center">
+            {completedLevel === null ? 'Training complete' : `Training complete for Level ${completedLevel}`}
+            {progressRecorder.outcome === 'saving' && ' - taking you back to My Dojo...'}
+          </div>
+          {/* Shown if saving failed, since Training then stays here */}
+          {progressRecorder.outcome !== null &&
+            typeof progressRecorder.outcome === 'object' &&
+            'error' in progressRecorder.outcome && (
+              <Link href="/dojo" className={`block w-full text-center ${buttonClassName}`}>
+                Return to Dojo
+              </Link>
+            )}
         </div>
       ) : (
         <div className="pt-4 pb-2">
