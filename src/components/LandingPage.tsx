@@ -6,23 +6,13 @@ import { ArrowRight, Check, CheckCircle2, GraduationCap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import LearningPreview from '@/components/LearningPreview';
-import PricingPlans from '@/components/PricingPlans';
 import { belts } from '@/lib/landingSamples';
-import type { PlanPrices } from '@/lib/planPrices';
 import mascot from '@/assets/ninja-mascot.jpg';
 import vocabulary from '@/assets/vocabulary-sync.jpg';
 
 // The home page, brought over from color-belt-lingo. Its styles are in
-// src/app/landing.css, scoped under .landing.
-export default function LandingPage({
-  prices,
-  accountStatus,
-}: {
-  // For the plans (#plans): each plan's Stripe price, and the signed-in
-  // user's account status (null when signed out)
-  prices: PlanPrices;
-  accountStatus: string | null;
-}) {
+// src/app/landing.css, scoped under .landing. Pricing is its own page.
+export default function LandingPage() {
   const [dialog, setDialog] = useState<'belts' | null>(null);
 
   return (
@@ -42,15 +32,22 @@ export default function LandingPage({
               Start with the language you know. Learn the one you love. Connect the words, find your voice, and
               earn your progress—one belt at a time.
             </p>
+            {/* The app's own button styles (like "Get Started" and "Logout"
+                in the nav bar), rather than the landing design's */}
             <div className="hero-actions">
-              <Button variant="ninja" size="hero" asChild>
-                <a href="#training">
-                  Begin your white belt path <ArrowRight />
-                </a>
-              </Button>
-              <Button variant="paper" size="hero" onClick={() => setDialog('belts')}>
+              <a
+                href="#training"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-gradient-to-r from-powder-500 to-powder-600 text-white font-semibold hover:shadow-lg hover:shadow-powder-500/50 transition-all"
+              >
+                Begin your white belt path <ArrowRight className="w-4 h-4" />
+              </a>
+              <button
+                type="button"
+                onClick={() => setDialog('belts')}
+                className="inline-flex items-center justify-center px-6 py-3 rounded-lg border border-powder-600 text-powder-600 font-semibold hover:bg-powder-600 hover:text-white transition-colors"
+              >
                 View the belt path
-              </Button>
+              </button>
             </div>
             <p className="hero-note">
               <CheckCircle2 size={14} /> Your language. Your pace. Your own little victories.
@@ -114,18 +111,6 @@ export default function LandingPage({
               </li>
             </ul>
           </div>
-        </div>
-      </section>
-
-      <section id="plans" className="pricing-section">
-        <div className="container-wide">
-          <div className="section-heading">
-            <span className="eyebrow">COMMIT TO YOUR NEXT CHAPTER</span>
-            <h2>Choose your path to mastery.</h2>
-            <p>A little practice today. A whole new world tomorrow.</p>
-          </div>
-          <PricingPlans prices={prices} accountStatus={accountStatus} />
-          <p className="pricing-note">Same curiosity. Two ways to keep it going.</p>
         </div>
       </section>
 

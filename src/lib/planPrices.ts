@@ -11,7 +11,7 @@ const PLAN_PRODUCT_ENV: Record<Plan, string> = {
 // Each plan's price, formatted (e.g. "$4.99"), or null if it can't be read
 export type PlanPrices = Record<Plan, string | null>;
 
-// The home page shows the prices on every visit, so they're kept for a few
+// The Pricing page shows the prices on every visit, so they're kept for a few
 // minutes rather than asking Stripe each time. A price changed in Stripe
 // shows up once this runs out.
 const CACHE_MS = 10 * 60 * 1000;

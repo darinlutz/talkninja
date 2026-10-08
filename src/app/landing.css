@@ -131,26 +131,6 @@
 .vocabulary-copy ul { display: grid; gap: 17px; margin-top: 26px; font-size: 13px; font-weight: 500; }
 .vocabulary-copy li { display: flex; gap: 11px; align-items: center; }
 .vocabulary-copy li svg { color: var(--primary); width: 16px; height: 16px; }
-.pricing-section { background: var(--foreground); color: var(--ink-inverse); padding-block: 77px 85px; }
-.pricing-section .eyebrow { color: var(--belt-blue); }
-.pricing-section .section-heading > p { color: var(--inverse-muted); }
-.pricing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; max-width: 850px; margin: 42px auto 0; }
-.plan { border: 1px solid var(--inverse-border); background: var(--inverse-surface); border-radius: 24px; padding: 32px; text-align: left; display: flex; flex-direction: column; }
-.plan-lifetime { background: var(--primary); border-color: var(--primary); }
-.plan-label { font-size: 10px; font-weight: 600; opacity: .8; display: flex; gap: 8px; align-items: center; }
-.plan h3 { font-size: 28px; font-weight: 600; margin-top: 18px; }
-.plan > p { font-size: 13px; opacity: .75; margin-top: 10px; line-height: 1.7; }
-.plan ul { display: grid; gap: 15px; font-size: 12px; margin: 27px 0 30px; }
-.plan li { display: flex; gap: 10px; align-items: center; }
-.plan li svg { width: 14px; height: 14px; }
-.plan > button { margin-top: auto; width: 100%; }
-/* ".plan > p" so these win over the plain ".plan > p" rule above */
-.plan > p.plan-price { font-family: var(--font-space-grotesk), sans-serif; font-size: 40px; font-weight: 700; line-height: 1.1; opacity: 1; margin-top: 18px; display: flex; align-items: baseline; gap: 8px; }
-.plan-price span { font-family: var(--font-inter), sans-serif; font-size: 13px; font-weight: 500; opacity: .75; }
-.plan-form { margin-top: auto; }
-.plan-form button { width: 100%; }
-.plan > p.plan-status { opacity: 1; margin-top: auto; padding: 16px; border-radius: 12px; text-align: center; font-size: 13px; font-weight: 600; background: color-mix(in oklab, var(--ink-inverse) 15%, transparent); }
-.pricing-note { text-align: center; color: var(--inverse-muted); font-size: 11px; margin-top: 25px; }
 .belt-dialog-list { display: grid; gap: 12px; margin-top: 12px; }
 .belt-dialog-item { display: flex; gap: 20px; align-items: center; border-bottom: 1px solid var(--border); padding: 14px 0; }
 .belt-dialog-item h3 { font-weight: 600; font-size: 14px; }
@@ -171,7 +151,7 @@
   .hero-copy { font-size: 15px; }
   .hero-label { margin-bottom: 20px; }
   .hero-actions { gap: 10px; }
-  .hero-actions > a { flex: 1; padding-inline: 13px; font-size: 11px; }
+  .hero-actions > a, .hero-actions > button { flex: 1; padding-inline: 13px; font-size: 13px; }
   .hero-art { max-width: 380px; width: 88%; margin-inline: auto; }
   .hero-art img { border-radius: 20px; }
   .mascot-note { left: -13px; bottom: 16px; padding: 10px 12px; }
@@ -196,9 +176,6 @@
   .vocabulary-copy { grid-row: 1; }
   .vocabulary-copy h2 { font-size: 33px; }
   .vocabulary-copy > p { font-size: 14px; }
-  .pricing-section { padding: 50px 0; }
-  .pricing-grid { grid-template-columns: 1fr; }
-  .plan { padding: 28px; border-radius: 20px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .landing *,

@@ -78,8 +78,8 @@ export async function POST(request: Request) {
       client_reference_id: String(user.id),
       customer_email: user.emailAddress,
       success_url: `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
-      // Back to the home page's plans, where Checkout was started
-      cancel_url: `${origin}/#plans`,
+      // Back to the Pricing page, where Checkout was started
+      cancel_url: `${origin}/pricing`,
       line_items: [{ price: price.id, quantity: 1 }],
       // The webhook reads the plan to decide how to update the account
       metadata: { plan },
