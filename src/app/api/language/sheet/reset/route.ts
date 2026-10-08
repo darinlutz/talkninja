@@ -2,10 +2,15 @@ import { NextResponse } from 'next/server';
 import { fetchVocabulary } from '@/lib/language';
 import { connectedSheetResponse, parseSheetLink, sheetCsvUrl } from '@/lib/vocabSheet';
 import { getServiceAccountEmail, resetSheetToSample } from '@/lib/vocabSheetWriter';
+import { requireSignIn } from '@/lib/practiceAccess';
 
 // Erases a wrongly formatted Google Sheet, fills it with sample words in the
 // vocabulary format, and connects it. The Account page confirms with the user first.
+// Signed-in users only, since it writes with the site's Google service account.
 export async function POST(request: Request) {
+  const denied = await requireSignIn();
+  if (denied) return denied;
+
   try {
     const body = await request.json().catch(() => ({}));
     if (typeof body.link !== 'string' || !body.link.trim()) {

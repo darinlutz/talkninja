@@ -4,6 +4,7 @@ import { Difficulty } from '@/lib/language';
 import { Language } from '@/lib/translate';
 import { LANGUAGES } from '@/lib/languages';
 import { isValidTestDifficulty } from '@/lib/readingTest';
+import { checkPracticeAccess } from '@/lib/practiceAccess';
 
 interface FriendRequest {
   history: ChatMessage[];
@@ -14,6 +15,10 @@ interface FriendRequest {
 const VALID_LANGUAGES: readonly Language[] = LANGUAGES;
 
 export async function POST(request: Request) {
+  // Paid subscribers and Admins only (see practiceAccess.ts)
+  const access = await checkPracticeAccess();
+  if (access.denied) return access.denied;
+
   try {
     const body: FriendRequest = await request.json();
 

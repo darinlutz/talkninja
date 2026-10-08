@@ -1,10 +1,15 @@
 import { NextResponse } from 'next/server';
 import { checkGrammar } from '@/lib/grammarCheck';
 import { LANGUAGES, type Language } from '@/lib/languages';
+import { checkPracticeAccess } from '@/lib/practiceAccess';
 
 const VALID_LANGUAGES: readonly Language[] = LANGUAGES;
 
 export async function POST(request: Request) {
+  // Paid subscribers and Admins only (see practiceAccess.ts)
+  const access = await checkPracticeAccess();
+  if (access.denied) return access.denied;
+
   try {
     const body = await request.json().catch(() => ({}));
     const text = body.text;

@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import type { Language } from '@/lib/translate';
 import { LANGUAGES } from '@/lib/languages';
-import { getCurrentUser } from '@/lib/session';
 import { getCustomAgentInstructions } from '@/lib/customAgentInstructions';
 import { pickReadingItem } from '@/lib/wordPickerAgent';
+import { checkPracticeAccess } from '@/lib/practiceAccess';
 import {
   MAX_READING_TEST_DIFFICULTY,
   MIN_READING_TEST_DIFFICULTY,
@@ -12,6 +12,10 @@ import {
 const VALID_LANGUAGES: readonly Language[] = LANGUAGES;
 
 export async function POST(request: Request) {
+  // Paid subscribers and Admins only (see practiceAccess.ts)
+  const access = await checkPracticeAccess();
+  if (access.denied) return access.denied;
+
   try {
     const body = await request.json().catch(() => ({}));
     const learnLanguage: Language = VALID_LANGUAGES.includes(body.learnLanguage)
@@ -43,8 +47,7 @@ export async function POST(request: Request) {
       : [];
 
     // Signed-in users' Account page instructions weight what's picked
-    const user = await getCurrentUser();
-    const customInstructions = user ? await getCustomAgentInstructions(user.id) : null;
+    const customInstructions = await getCustomAgentInstructions(access.user.id);
 
     const test = await pickReadingItem(learnLanguage, userLanguage, difficulty, avoid, customInstructions);
 

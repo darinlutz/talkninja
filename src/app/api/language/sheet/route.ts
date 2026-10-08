@@ -9,15 +9,24 @@ import {
   VOCAB_SHEET_COOKIE,
 } from '@/lib/vocabSheet';
 import { getServiceAccountEmail } from '@/lib/vocabSheetWriter';
+import { requireSignIn } from '@/lib/practiceAccess';
+
+// The My Account page's Setup section; signed-in users only
 
 // Which sheet the Language page is currently using
 export async function GET() {
+  const denied = await requireSignIn();
+  if (denied) return denied;
+
   const sheet = await getConnectedSheet();
   return NextResponse.json({ connected: !!sheet, link: sheet ? sheetViewUrl(sheet) : null });
 }
 
 // Connects a Google Sheet after checking it can be read and has vocabulary
 export async function POST(request: Request) {
+  const denied = await requireSignIn();
+  if (denied) return denied;
+
   try {
     const body = await request.json().catch(() => ({}));
     if (typeof body.link !== 'string' || !body.link.trim()) {
@@ -63,6 +72,9 @@ export async function POST(request: Request) {
 
 // Goes back to the built-in vocabulary sheet
 export async function DELETE() {
+  const denied = await requireSignIn();
+  if (denied) return denied;
+
   const response = NextResponse.json({ success: true });
   response.cookies.delete(VOCAB_SHEET_COOKIE);
   return response;

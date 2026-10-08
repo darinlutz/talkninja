@@ -54,6 +54,8 @@ export default function Navigation({ user }: NavigationProps) {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-1 lg:gap-2 xl:gap-6">
+            {/* Shown to everyone; the page sends anyone who isn't a paid
+                subscriber to Pricing */}
             <Link
               href="/dojo"
               className="px-3 py-2 text-dark-blue hover:text-powder-600 transition-colors font-medium whitespace-nowrap"

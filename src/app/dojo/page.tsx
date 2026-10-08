@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { hasPracticeAccess } from '@/lib/accountStatus';
 import { ArrowRight } from 'lucide-react';
 import DojoIllustration, { type DojoScene } from '@/components/DojoIllustration';
 import LanguageProgressBanner from '@/components/LanguageProgressBanner';
@@ -37,15 +39,17 @@ const PRACTICE: { scene: DojoScene; title: string; text: string; tab: string }[]
 
 export default async function DojoPage() {
   const user = await getCurrentUser();
+  // My Dojo is for paid subscribers (and Admins); everyone else, signed in
+  // or not, is sent to Pricing
+  if (!user || !hasPracticeAccess(user.accountStatus, user.role)) redirect('/pricing');
+
   // The Account page's Language Setup, or the defaults the Language page uses
-  const userLanguage = user?.nativeLanguage ?? DEFAULT_USER_LANGUAGE;
-  const learnLanguage = user?.activeLearningLanguage ?? DEFAULT_LEARN_LANGUAGE;
-  // The belt and next step in the language being learned; null when signed
-  // out (progress isn't saved)
-  const progress = user
-    ? ((await getLanguageProgress(user.id)).find((entry) => entry.language === learnLanguage) ??
-      startingProgress(learnLanguage))
-    : null;
+  const userLanguage = user.nativeLanguage ?? DEFAULT_USER_LANGUAGE;
+  const learnLanguage = user.activeLearningLanguage ?? DEFAULT_LEARN_LANGUAGE;
+  // The belt and next step in the language being learned
+  const progress =
+    (await getLanguageProgress(user.id)).find((entry) => entry.language === learnLanguage) ??
+    startingProgress(learnLanguage);
 
   return (
     <section className="py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-slate-100 to-white">

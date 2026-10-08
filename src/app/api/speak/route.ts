@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
+import { checkPracticeAccess } from '@/lib/practiceAccess';
 
 export async function POST(request: Request) {
+  // Paid subscribers and Admins only (see practiceAccess.ts)
+  const access = await checkPracticeAccess();
+  if (access.denied) return access.denied;
+
   try {
     const body = await request.json();
     const text = body.text;

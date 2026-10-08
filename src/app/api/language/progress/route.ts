@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/session';
+import { checkPracticeAccess } from '@/lib/practiceAccess';
 import { isLanguage } from '@/lib/languages';
 import { getLanguageProgress, recordLanguageActivity } from '@/lib/languageProgress';
 import { MAX_BELT_LEVEL, type LanguageActivity } from '@/lib/languageLevels';
@@ -11,10 +11,10 @@ const ACTIVITIES: LanguageActivity[] = ['training', 'reading', 'writing'];
 // "want to learn" / "I speak" languages
 export async function GET() {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
-    }
+    // Paid subscribers and Admins only (see practiceAccess.ts)
+    const access = await checkPracticeAccess();
+    if (access.denied) return access.denied;
+    const user = access.user;
     return NextResponse.json({
       progress: await getLanguageProgress(user.id),
       role: user.role,
@@ -30,10 +30,10 @@ export async function GET() {
 // Records a completed Training or a Reading/Writing test score
 export async function POST(request: Request) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
-    }
+    // Paid subscribers and Admins only (see practiceAccess.ts)
+    const access = await checkPracticeAccess();
+    if (access.denied) return access.denied;
+    const user = access.user;
 
     const body = await request.json().catch(() => ({}));
     const { language, activity } = body;

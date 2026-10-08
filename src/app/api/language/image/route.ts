@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server';
 import { searchSentenceImage } from '@/lib/imageSearch';
+import { checkPracticeAccess } from '@/lib/practiceAccess';
 
 export async function POST(request: Request) {
+  // Paid subscribers and Admins only (see practiceAccess.ts)
+  const access = await checkPracticeAccess();
+  if (access.denied) return access.denied;
+
   try {
     const body = await request.json().catch(() => ({}));
     const query: string = typeof body.query === 'string' ? body.query.trim() : '';

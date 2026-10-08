@@ -1,8 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getRandomSentence, type Difficulty } from '@/lib/language';
 import { isValidTestDifficulty, MIN_READING_TEST_DIFFICULTY } from '@/lib/readingTest';
+import { checkPracticeAccess } from '@/lib/practiceAccess';
 
 export async function POST(request: Request) {
+  // Paid subscribers and Admins only (see practiceAccess.ts)
+  const access = await checkPracticeAccess();
+  if (access.denied) return access.denied;
+
   try {
     const body = await request.json().catch(() => ({}));
     // A level on the 1-8 Difficulty scale, sent as a string or a number

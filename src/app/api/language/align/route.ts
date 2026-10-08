@@ -2,12 +2,17 @@ import { NextResponse } from 'next/server';
 import type { Language } from '@/lib/translate';
 import { alignTranslation } from '@/lib/wordAlignment';
 import { LANGUAGES } from '@/lib/languages';
+import { checkPracticeAccess } from '@/lib/practiceAccess';
 
 const VALID_LANGUAGES: readonly Language[] = LANGUAGES;
 
 // Pairs up the words of a sentence and its translation so matching words
 // can be shown in the same color.
 export async function POST(request: Request) {
+  // Paid subscribers and Admins only (see practiceAccess.ts)
+  const access = await checkPracticeAccess();
+  if (access.denied) return access.denied;
+
   try {
     const body = await request.json().catch(() => ({}));
     const { sentence, translation } = body;
