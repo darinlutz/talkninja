@@ -37,7 +37,7 @@ export default function SupportedLanguagesDialog({
               key={language}
               className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 transition-colors hover:border-powder-500 hover:bg-powder-500/5"
             >
-              {/* dir="auto" lays out Arabic, Persian, Urdu and Western Punjabi right to left */}
+              {/* dir="auto" lays out Arabic, Persian and Urdu right to left */}
               <span dir="auto" translate="no" className="block text-lg font-semibold text-dark-blue truncate">
                 {NATIVE_NAMES[language]}
               </span>

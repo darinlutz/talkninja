@@ -56,6 +56,13 @@ export default function Navigation({ user }: NavigationProps) {
             >
               Language
             </Link>
+            <button
+              type="button"
+              onClick={() => setLanguagesOpen(true)}
+              className="px-3 py-2 text-dark-blue hover:text-powder-600 transition-colors font-medium whitespace-nowrap"
+            >
+              Supported Languages
+            </button>
             {!user?.hasLifetime && (
               <Link
                 href="/pricing"
@@ -64,28 +71,21 @@ export default function Navigation({ user }: NavigationProps) {
                 Pricing
               </Link>
             )}
-            <button
-              type="button"
-              onClick={() => setLanguagesOpen(true)}
-              className="px-3 py-2 text-dark-blue hover:text-powder-600 transition-colors font-medium whitespace-nowrap"
-            >
-              Supported Languages
-            </button>
           </div>
 
           {/* Desktop Account */}
           <div className="hidden md:flex items-center gap-3">
             {user ? (
               <>
-                <span className="text-dark-blue font-medium whitespace-nowrap">
-                  Welcome, <span translate="no">{user.userName}</span>
-                </span>
                 <Link
                   href="/account"
                   className="px-3 py-2 text-dark-blue hover:text-powder-600 transition-colors font-medium whitespace-nowrap"
                 >
-                  Account
+                  My Account
                 </Link>
+                <span className="text-dark-blue font-medium whitespace-nowrap">
+                  Welcome, <span translate="no">{user.userName}</span>
+                </span>
                 <button
                   onClick={handleLogout}
                   disabled={loggingOut}
@@ -146,15 +146,6 @@ export default function Navigation({ user }: NavigationProps) {
             >
               Language
             </Link>
-            {!user?.hasLifetime && (
-              <Link
-                href="/pricing"
-                className="block px-3 py-2 rounded-md text-base font-medium text-dark-blue hover:text-powder-600 hover:bg-slate-100 transition-colors"
-                onClick={closeMenu}
-              >
-                Pricing
-              </Link>
-            )}
             <button
               type="button"
               onClick={() => {
@@ -165,6 +156,15 @@ export default function Navigation({ user }: NavigationProps) {
             >
               Supported Languages
             </button>
+            {!user?.hasLifetime && (
+              <Link
+                href="/pricing"
+                className="block px-3 py-2 rounded-md text-base font-medium text-dark-blue hover:text-powder-600 hover:bg-slate-100 transition-colors"
+                onClick={closeMenu}
+              >
+                Pricing
+              </Link>
+            )}
             <div className="border-t border-slate-200 pt-2 mt-2">
               {user ? (
                 <>
@@ -173,7 +173,7 @@ export default function Navigation({ user }: NavigationProps) {
                     className="block px-3 py-2 rounded-md text-base font-medium text-dark-blue hover:text-powder-600 hover:bg-slate-100 transition-colors"
                     onClick={closeMenu}
                   >
-                    Account
+                    My Account
                   </Link>
                   <div className="flex items-center justify-between px-3 py-2">
                     <span className="text-base font-medium text-dark-blue">

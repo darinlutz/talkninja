@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter, Space_Grotesk } from "next/font/google";
 import Navigation from "@/components/Navigation";
-import Footer from "@/components/Footer";
 import PageTranslator from "@/components/PageTranslator";
 import { getCurrentUser } from "@/lib/session";
 import { ACCOUNT_STATUS } from "@/lib/accountStatus";
@@ -31,8 +30,9 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "Clarivex - Tackling Complex Problems with Clear Solutions",
-  description: "Clarivex specializes in helping businesses automate and streamline their repetitive processes with clarity and efficiency.",
+  title: "TalkNinja. New Language. Next Belt.",
+  description:
+    "Learn a new language from the one you already speak, and earn your belts one level at a time.",
 };
 
 export default async function RootLayout({
@@ -59,7 +59,6 @@ export default async function RootLayout({
         <main className="flex-1 pt-16">
           {children}
         </main>
-        <Footer />
         {/* Shows the site in the user's "I speak" language */}
         <PageTranslator language={user?.nativeLanguage ?? null} />
       </body>

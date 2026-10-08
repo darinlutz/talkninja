@@ -12,7 +12,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## Project Overview
 
-**TalkNinja** is a language learning tool. Learners pick a language (any of the 27 in `src/lib/languages.ts`) and work up through martial-arts style belt levels (No Belt → level 8: White, Green, Yellow, Orange, Blue, Red, Brown, Black). Each level is Training, then a Reading Test, then a Writing Test; a score of 80% or higher passes, and passing Writing earns the belt.
+**TalkNinja** is a language learning tool. Learners pick a language (any of the 28 in `src/lib/languages.ts`) and work up through martial-arts style belt levels (No Belt → level 8: White, Green, Yellow, Orange, Blue, Red, Brown, Black). Each level is Training, then a Reading Test, then a Writing Test; a score of 80% or higher passes, and passing Writing earns the belt.
 
 The Language page (`src/app/language/page.tsx`) has these tabs:
 - **Training** – practice vocabulary from the learner's sheet, with text-to-speech and pictures
@@ -60,7 +60,7 @@ npm run lint         # Run ESLint
 ```
 src/
 ├── app/
-│   ├── layout.tsx          # Root layout with Navigation & Footer
+│   ├── layout.tsx          # Root layout with Navigation (no footer)
 │   ├── language/           # The Language page (all learning tabs)
 │   ├── account/            # Account & subscription page
 │   ├── login/ signup/ reset-password/ success/

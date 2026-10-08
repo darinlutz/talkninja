@@ -36,10 +36,55 @@ export type SampleLanguage = keyof typeof samples;
 // Time, person, action, object: the same color marks the same role in both languages
 export const wordColors = ['word-time', 'word-person', 'word-action', 'word-object'];
 
+// The 8 belts in order (see "BeltLevelKey" in users.ts). Each description
+// follows that level's sentence difficulty (DIFFICULTY_GUIDE in readingTest.ts).
 export const belts = [
-  { name: 'White', className: 'belt-white', text: 'Start with the basics.' },
-  { name: 'Yellow', className: 'belt-yellow', text: 'Build on what you know.' },
-  { name: 'Green', className: 'belt-green', text: 'Keep growing your vocabulary.' },
-  { name: 'Blue', className: 'belt-blue', text: 'Take on a new challenge.' },
-  { name: 'Black', className: 'belt-black', text: 'Keep reaching for mastery.' },
+  {
+    level: 1,
+    name: 'White',
+    className: 'belt-white',
+    text: 'Your first words. Greetings, numbers and everyday basics in short sentences of 3–5 words.',
+  },
+  {
+    level: 2,
+    name: 'Green',
+    className: 'belt-green',
+    text: 'Grow your vocabulary and say simple things about yourself and your day, 4–7 words at a time.',
+  },
+  {
+    level: 3,
+    name: 'Yellow',
+    className: 'belt-yellow',
+    text: 'Start talking about what happened. Simple present and past tense sentences of 6–9 words.',
+  },
+  {
+    level: 4,
+    name: 'Orange',
+    className: 'belt-orange',
+    text: 'Add when and where. Sentences of 8–12 words with time and place phrases, joined with words like “and” and “but”.',
+  },
+  {
+    level: 5,
+    name: 'Blue',
+    className: 'belt-blue',
+    text: 'Move between past, present and future, and join two ideas into one sentence of 10–15 words.',
+  },
+  {
+    level: 6,
+    name: 'Red',
+    className: 'belt-red',
+    text: 'Less common vocabulary and sentences built around clauses like “because” and “when”, 13–18 words long.',
+  },
+  {
+    level: 7,
+    name: 'Brown',
+    className: 'belt-brown',
+    text: 'Conditionals, comparisons and everyday idioms. Sentences of 16–24 words with several clauses, close to how natives talk.',
+  },
+  {
+    level: 8,
+    name: 'Black',
+    className: 'belt-black',
+    text: 'Mastery. Advanced vocabulary, nested clauses and formal, nuanced speech in sentences of up to 32 words.',
+  },
 ];

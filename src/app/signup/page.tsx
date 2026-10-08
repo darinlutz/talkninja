@@ -11,7 +11,7 @@ export default async function SignupPage() {
         <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-powder-600 via-powder-500 to-powder-600 bg-clip-text text-transparent">
           Create an Account
         </h1>
-        <p className="text-slate-600 mb-8">Sign up to get started with Clarivex.</p>
+        <p className="text-slate-600 mb-8">Sign up to get started with TalkNinja.</p>
         <SignupForm />
       </div>
     </section>

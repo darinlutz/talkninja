@@ -186,18 +186,18 @@ export default function LearningPreview({ onBelts }: { onBelts: () => void }) {
               <Check size={14} className="text-muted-foreground" />
             </div>
             <div className="belt-row">
-              <span className="belt belt-yellow" />
-              <span>Yellow belt</span>
+              <span className="belt belt-green" />
+              <span>Green belt</span>
               <Check size={14} className="text-muted-foreground" />
             </div>
             <div className="belt-row current-belt">
-              <span className="belt belt-green" />
-              <span>Green belt</span>
+              <span className="belt belt-yellow" />
+              <span>Yellow belt</span>
               <span className="rank-label">NEXT UP</span>
             </div>
             <div className="belt-row future-belt">
-              <span className="belt belt-blue" />
-              <span>Blue belt</span>
+              <span className="belt belt-orange" />
+              <span>Orange belt</span>
             </div>
             <Button variant="paper" className="w-full mt-5" onClick={onBelts}>
               Explore the belt path <ChevronRight />

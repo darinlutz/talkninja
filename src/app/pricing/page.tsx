@@ -4,8 +4,8 @@ import { getCurrentUser } from '@/lib/session';
 import { canBuy } from '@/lib/users';
 import { ACCOUNT_STATUS, type Plan } from '@/lib/accountStatus';
 
+// Keeps the site-wide tab title from the root layout
 export const metadata: Metadata = {
-  title: 'Pricing — TalkNinja',
   description: 'TalkNinja monthly and lifetime subscriptions.',
 };
 

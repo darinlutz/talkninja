@@ -169,20 +169,24 @@ export default function LandingPage() {
         }}
       >
         {/* The dialog renders outside the page, so it needs .landing for the page's fonts and colors */}
-        <DialogContent className="landing">
+        {/* Scrolls on short screens, since the belt path has 8 belts */}
+        <DialogContent className="landing max-h-[90vh] overflow-y-auto">
           {dialog === 'belts' ? (
             <>
               <GraduationCap className="text-primary" size={28} />
               <DialogTitle>Your path, one belt at a time.</DialogTitle>
               <DialogDescription>
-                Start at white. Practice, pass your tests, and take on the next challenge as you progress.
+                Start at white and work up to black. Each belt is Training, a Reading Test and a Writing Test,
+                with longer, richer sentences than the last. Score 80% on the Writing Test to earn the belt.
               </DialogDescription>
               <div className="belt-dialog-list">
                 {belts.map((belt) => (
                   <div className="belt-dialog-item" key={belt.name}>
                     <span className={`belt ${belt.className}`} />
                     <div>
-                      <h3>{belt.name} belt</h3>
+                      <h3>
+                        {belt.name} belt <span className="belt-dialog-level">Level {belt.level}</span>
+                      </h3>
                       <p>{belt.text}</p>
                     </div>
                   </div>

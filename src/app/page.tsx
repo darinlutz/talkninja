@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import LandingPage from '@/components/LandingPage';
 
 export const metadata: Metadata = {
-  title: 'TalkNinja — Learn a language. Earn your belt.',
+  title: 'TalkNinja. New Language. Next Belt.',
   description:
     'Learn from the language you already speak with color-connected vocabulary, voice practice, a conversational Friend, and a belt-by-belt path forward.',
   openGraph: {

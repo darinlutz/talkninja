@@ -69,7 +69,7 @@ export function ensureUserSchema(): Promise<void> {
     schemaReady = transaction(async (client) => {
       // Concurrent CREATE TABLE IF NOT EXISTS can still collide in Postgres
       // when several server instances boot at once, so serialize them.
-      await client.query("SELECT pg_advisory_xact_lock(hashtext('clarivex_user_schema'))");
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('talkninja_user_schema'))");
       await client.query(`CREATE SCHEMA IF NOT EXISTS ${DB_SCHEMA}`);
       // "Users" was called talkninjausers before; renaming keeps its rows and
       // everything that references it.

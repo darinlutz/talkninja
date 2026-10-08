@@ -98,6 +98,10 @@
   --belt-yellow: oklch(0.795 0.184 86.047);
   --belt-green: oklch(0.723 0.219 149.579);
   --belt-blue: oklch(0.623 0.214 259.815);
+  /* Match BeltIcon's orange, red and brown */
+  --belt-orange: #f97316;
+  --belt-red: #dc2626;
+  --belt-brown: #7c4a1e;
   --ink-inverse: oklch(1 0 0);
   --inverse-muted: oklch(0.77 0.03 250);
   --inverse-border: oklch(1 0 0 / 15%);

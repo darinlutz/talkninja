@@ -6,12 +6,14 @@ export const LANGUAGES = [
   'Chinese (Mandarin)',
   'Dutch',
   'English',
+  'Filipino (Tagalog)',
   'French',
   'German',
   'Greek',
   'Gujarati',
   'Hindi',
   'Indonesian',
+  'Irish',
   'Italian',
   'Japanese',
   'Korean',
@@ -27,7 +29,6 @@ export const LANGUAGES = [
   'Turkish',
   'Urdu',
   'Vietnamese',
-  'Western Punjabi',
 ] as const;
 
 export type Language = (typeof LANGUAGES)[number];
@@ -39,12 +40,14 @@ export const LANGUAGE_CODES: Record<Language, string> = {
   'Chinese (Mandarin)': 'zh',
   Dutch: 'nl',
   English: 'en',
+  'Filipino (Tagalog)': 'fil',
   French: 'fr',
   German: 'de',
   Greek: 'el',
   Gujarati: 'gu',
   Hindi: 'hi',
   Indonesian: 'id',
+  Irish: 'ga',
   Italian: 'it',
   Japanese: 'ja',
   Korean: 'ko',
@@ -60,7 +63,6 @@ export const LANGUAGE_CODES: Record<Language, string> = {
   Turkish: 'tr',
   Urdu: 'ur',
   Vietnamese: 'vi',
-  'Western Punjabi': 'pnb',
 };
 
 // Each language's name in its own language, for the nav bar's "Supported
@@ -71,12 +73,14 @@ export const NATIVE_NAMES: Record<Language, string> = {
   'Chinese (Mandarin)': '普通话',
   Dutch: 'Nederlands',
   English: 'English',
+  'Filipino (Tagalog)': 'Filipino',
   French: 'Français',
   German: 'Deutsch',
   Greek: 'Ελληνικά',
   Gujarati: 'ગુજરાતી',
   Hindi: 'हिन्दी',
   Indonesian: 'Bahasa Indonesia',
+  Irish: 'Gaeilge',
   Italian: 'Italiano',
   Japanese: '日本語',
   Korean: '한국어',
@@ -92,7 +96,6 @@ export const NATIVE_NAMES: Record<Language, string> = {
   Turkish: 'Türkçe',
   Urdu: 'اردو',
   Vietnamese: 'Tiếng Việt',
-  'Western Punjabi': 'پنجابی',
 };
 
 // The "I speak" / "and want to learn" languages until the user saves their

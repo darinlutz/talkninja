@@ -66,7 +66,10 @@
 .belt-white { --belt-color: var(--card); }
 .belt-yellow { --belt-color: var(--belt-yellow); }
 .belt-green { --belt-color: var(--belt-green); }
+.belt-orange { --belt-color: var(--belt-orange); }
 .belt-blue { --belt-color: var(--belt-blue); }
+.belt-red { --belt-color: var(--belt-red); }
+.belt-brown { --belt-color: var(--belt-brown); }
 .belt-black { --belt-color: var(--foreground); }
 .training-section { padding: 8px 0 80px; }
 .section-heading { text-align: center; margin-bottom: 30px; }
@@ -145,7 +148,8 @@
 .belt-dialog-list { display: grid; gap: 12px; margin-top: 12px; }
 .belt-dialog-item { display: flex; gap: 20px; align-items: center; border-bottom: 1px solid var(--border); padding: 14px 0; }
 .belt-dialog-item h3 { font-weight: 600; font-size: 14px; }
-.belt-dialog-item p { font-size: 12px; color: var(--muted-foreground); margin-top: 4px; }
+.belt-dialog-level { margin-left: 6px; font-size: 10px; font-weight: 500; letter-spacing: .04em; text-transform: uppercase; color: var(--muted-foreground); }
+.belt-dialog-item p { font-size: 12px; line-height: 1.6; color: var(--muted-foreground); margin-top: 4px; }
 @media (max-width: 1023px) {
   .hero h1 { font-size: 54px; }
   .hero-grid { gap: 30px; }
