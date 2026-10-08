@@ -24,7 +24,7 @@ interface TestDifficultySelectorProps {
   disabled?: boolean;
 }
 
-// The Difficulty (Fast Phrases, Words, 1-10) and Word Categories
+// The Difficulty (Fast Phrases, Words, 1-8) and Word Categories
 // comboboxes, with the number of vocabulary items available.
 export default function TestDifficultySelector({
   idPrefix,

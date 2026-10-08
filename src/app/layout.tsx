@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Inter, Space_Grotesk } from "next/font/google";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { getCurrentUser } from "@/lib/session";
+import { ACCOUNT_STATUS } from "@/lib/accountStatus";
 import "./globals.css";
 // After globals.css: its rules join the base layer that globals.css declares
 import "./landing.css";
@@ -47,7 +48,13 @@ export default async function RootLayout({
       data-scroll-behavior="smooth"
     >
       <body className="min-h-screen bg-white text-dark-blue flex flex-col">
-        <Navigation user={user ? { userName: user.userName } : null} />
+        <Navigation
+          user={
+            user
+              ? { userName: user.userName, hasLifetime: user.accountStatus === ACCOUNT_STATUS.lifetime }
+              : null
+          }
+        />
         <main className="flex-1 pt-16">
           {children}
         </main>

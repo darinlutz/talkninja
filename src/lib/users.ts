@@ -49,7 +49,7 @@ export class EmailTakenError extends Error {
   }
 }
 
-// Belt color for each level, indexed by level (0-10)
+// Belt color for each level, indexed by level (0-8)
 const BELT_COLORS = [
   'No Belt',
   'White',
@@ -57,9 +57,7 @@ const BELT_COLORS = [
   'Yellow',
   'Orange',
   'Blue',
-  'Purple',
   'Red',
-  'Gold',
   'Brown',
   'Black',
 ];
@@ -163,6 +161,24 @@ export function ensureUserSchema(): Promise<void> {
       await client.query(
         'CREATE INDEX IF NOT EXISTS language_activity_user_language_idx ON "LanguageActivity" (user_id, language)'
       );
+      // There used to be 10 levels, with Purple at 6 and Gold at 8. Each
+      // level moves to its color's new level; a Purple or Gold belt becomes
+      // the belt below it (Blue or Red), so no one skips a belt.
+      await client.query(`DO $$
+      BEGIN
+        IF EXISTS (SELECT 1 FROM "BeltLevelKey" WHERE belt_color IN ('Purple', 'Gold')) THEN
+          UPDATE "UserLanguageProgress"
+            SET belt_level = CASE belt_level WHEN 6 THEN 5 WHEN 7 THEN 6 WHEN 8 THEN 6 WHEN 9 THEN 7 WHEN 10 THEN 8 END
+            WHERE belt_level >= 6;
+          UPDATE "LanguageActivity"
+            SET level = CASE level WHEN 6 THEN 5 WHEN 7 THEN 6 WHEN 8 THEN 6 WHEN 9 THEN 7 WHEN 10 THEN 8 END
+            WHERE level >= 6;
+          DELETE FROM "BeltLevelKey" WHERE level > 8;
+          UPDATE "BeltLevelKey"
+            SET belt_color = CASE level WHEN 6 THEN 'Red' WHEN 7 THEN 'Brown' WHEN 8 THEN 'Black' END
+            WHERE level BETWEEN 6 AND 8;
+        END IF;
+      END $$`);
       // Email addresses are unique regardless of case
       await client.query(
         'CREATE UNIQUE INDEX IF NOT EXISTS users_email_address_key ON "Users" (lower(email_address))'

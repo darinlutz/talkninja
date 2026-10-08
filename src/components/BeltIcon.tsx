@@ -5,9 +5,7 @@ const BELT_FILLS: Record<string, string> = {
   Yellow: '#facc15',
   Orange: '#f97316',
   Blue: '#2563eb',
-  Purple: '#7e22ce',
   Red: '#dc2626',
-  Gold: '#d4a017',
   Brown: '#7c4a1e',
   Black: '#111827',
 };

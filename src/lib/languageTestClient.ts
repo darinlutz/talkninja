@@ -5,7 +5,7 @@
 import type { Language } from '@/lib/translate';
 import type { WordCategory } from '@/lib/language';
 import type { AlignedSegment } from '@/lib/wordAlignment';
-import type { LanguageActivity, LanguageProgress, RecordedActivity } from '@/lib/languageLevels';
+import { MAX_BELT_LEVEL, type LanguageActivity, type LanguageProgress, type RecordedActivity } from '@/lib/languageLevels';
 import { isAdmin } from '@/lib/roles';
 import { isLanguage } from '@/lib/languages';
 import { LANGUAGES } from '@/lib/languages';
@@ -31,8 +31,8 @@ export const WORD_CATEGORIES: { value: WordCategory; label: string }[] = [
   { value: 'verbs', label: 'Verbs' },
 ];
 
-// "words" and "fastPhrases" come from the vocabulary sheet; "1"-"10" are
-// generated sentences on the Reading Test's 1-10 scale.
+// "words" and "fastPhrases" come from the vocabulary sheet; "1"-"8" are
+// generated sentences on the Reading Test's 1-8 scale.
 export type TestDifficulty = 'fastPhrases' | 'words' | `${number}`;
 
 // The vocabulary sheet category a Difficulty draws from, or null for
@@ -85,7 +85,7 @@ export async function withLanguages(item: TestItem, languages: Language[]): Prom
   return { ...item, texts: { ...item.texts, ...Object.fromEntries(translated) } };
 }
 
-// Gets a new item from the vocabulary sheet or, for 1-10, a generated
+// Gets a new item from the vocabulary sheet or, for 1-8, a generated
 // sentence, and records it in `history`.
 export async function fetchTestItem(
   id: number,
@@ -239,14 +239,14 @@ export async function speakText(text: string, voice: string): Promise<void> {
 export const TEST_LENGTH = 10;
 export { PASSING_SCORE } from '@/lib/languageLevels';
 
-// The 1-10 sentence Difficulty scale shared by the test tabs
-export const DIFFICULTY_LEVELS = Array.from({ length: 10 }, (_, i) => i + 1);
+// The 1-8 sentence Difficulty scale (one per belt level) shared by the test tabs
+export const DIFFICULTY_LEVELS = Array.from({ length: MAX_BELT_LEVEL }, (_, i) => i + 1);
 
 const DIFFICULTY_LABELS: Record<number, string> = {
   1: 'Very Easy',
   3: 'Easy',
   5: 'Medium',
-  10: 'Very Hard',
+  8: 'Very Hard',
 };
 
 export const difficultyOptionLabel = (level: number) =>

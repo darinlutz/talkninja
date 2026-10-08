@@ -4,9 +4,7 @@ import { useEffect, useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import type { Language } from '@/lib/translate';
 import type { WordCategory } from '@/lib/language';
-import { LANGUAGES } from '@/lib/languages';
-
-const READING_LANGUAGES: readonly Language[] = LANGUAGES;
+import { DIFFICULTY_LEVELS, difficultyOptionLabel } from '@/lib/languageTestClient';
 
 const WORD_CATEGORIES: { value: WordCategory; label: string }[] = [
   { value: 'activities', label: 'Activities' },
@@ -61,29 +59,22 @@ async function resolveAnswerText(
 }
 
 interface LanguageFormProps {
-  wordLanguage?: Language;
-  answerLanguage?: Language;
+  // The Account page's "and want to learn" and "I speak" languages
+  wordLanguage: Language;
+  answerLanguage: Language;
 }
 
-export default function LanguageForm({
-  wordLanguage: requestedWordLanguage,
-  answerLanguage: requestedAnswerLanguage,
-}: LanguageFormProps) {
+export default function LanguageForm({ wordLanguage, answerLanguage }: LanguageFormProps) {
   const [vietnameseSource, setVietnameseSource] = useState('');
   const [englishSource, setEnglishSource] = useState('');
   const [word, setWord] = useState('');
-  const [wordLanguage, setWordLanguage] = useState<Language>(requestedWordLanguage ?? 'Vietnamese');
-  const [appliedWordLanguage, setAppliedWordLanguage] = useState(requestedWordLanguage);
   const [answerText, setAnswerText] = useState('');
-  const [answerLanguage, setAnswerLanguage] = useState<Language>(requestedAnswerLanguage ?? 'English');
-  const [appliedAnswerLanguage, setAppliedAnswerLanguage] = useState(requestedAnswerLanguage);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
   const [speakStatus, setSpeakStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [showAnswer, setShowAnswer] = useState(true);
-  const [mode, setMode] = useState<
-    'words' | 'fastPhrases' | 'generalPhrases' | 'easy' | 'medium' | 'hard'
-  >('words');
+  // "1"-"8" are generated sentences on the Difficulty scale
+  const [mode, setMode] = useState<'words' | 'fastPhrases' | 'generalPhrases' | `${number}`>('words');
   const [wordCategory, setWordCategory] = useState<WordCategory>('adjectives');
   const [wordCategoryCount, setWordCategoryCount] = useState<number | null>(null);
   const [wordsShownCount, setWordsShownCount] = useState(0);
@@ -112,20 +103,6 @@ export default function LanguageForm({
     null
   );
   const [pressesSinceFlag, setPressesSinceFlag] = useState(0);
-
-  // Lets the page-level "I want to learn" selector drive this field's
-  // language without taking away the user's ability to change it locally.
-  if (requestedWordLanguage && requestedWordLanguage !== appliedWordLanguage) {
-    setAppliedWordLanguage(requestedWordLanguage);
-    setWordLanguage(requestedWordLanguage);
-  }
-
-  // Lets the page-level "I currently speak" selector drive this field's
-  // language without taking away the user's ability to change it locally.
-  if (requestedAnswerLanguage && requestedAnswerLanguage !== appliedAnswerLanguage) {
-    setAppliedAnswerLanguage(requestedAnswerLanguage);
-    setAnswerLanguage(requestedAnswerLanguage);
-  }
 
   const maskText = (text: string) => text.replace(/\S/g, '•');
 
@@ -448,19 +425,7 @@ export default function LanguageForm({
     <div className="space-y-6">
       {/* Word/Sentence Field */}
       <div>
-        <select
-          id="wordLanguage"
-          name="wordLanguage"
-          value={wordLanguage}
-          onChange={(e) => setWordLanguage(e.target.value as Language)}
-          className="mb-2 px-2 py-1 text-sm bg-white border border-slate-300 rounded-lg text-dark-blue focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors"
-        >
-          {READING_LANGUAGES.map((lang) => (
-            <option key={lang} value={lang}>
-              {lang}
-            </option>
-          ))}
-        </select>
+        <span className="block mb-2 text-sm font-medium text-dark-blue">{wordLanguage}</span>
         <div className="flex flex-col sm:flex-row gap-3">
           <textarea
             id="word"
@@ -490,19 +455,7 @@ export default function LanguageForm({
 
       {/* Answer Field */}
       <div>
-        <select
-          id="answerLanguage"
-          name="answerLanguage"
-          value={answerLanguage}
-          onChange={(e) => setAnswerLanguage(e.target.value as Language)}
-          className="mb-2 px-2 py-1 text-sm bg-white border border-slate-300 rounded-lg text-dark-blue focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors"
-        >
-          {READING_LANGUAGES.map((lang) => (
-            <option key={lang} value={lang}>
-              {lang}
-            </option>
-          ))}
-        </select>
+        <span className="block mb-2 text-sm font-medium text-dark-blue">{answerLanguage}</span>
         <div className="flex flex-col sm:flex-row gap-3">
           <textarea
             id="answer"
@@ -543,25 +496,17 @@ export default function LanguageForm({
           id="mode"
           name="mode"
           value={mode}
-          onChange={(e) =>
-            setMode(
-              e.target.value as
-                | 'words'
-                | 'fastPhrases'
-                | 'generalPhrases'
-                | 'easy'
-                | 'medium'
-                | 'hard'
-            )
-          }
+          onChange={(e) => setMode(e.target.value as typeof mode)}
           className="px-2 py-1 text-sm bg-white border border-slate-300 rounded-lg text-dark-blue focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors"
         >
           <option value="words">Words</option>
           <option value="fastPhrases">Fast Phrases</option>
           <option value="generalPhrases">General Phrases</option>
-          <option value="easy">Easy</option>
-          <option value="medium">Medium</option>
-          <option value="hard">Hard</option>
+          {DIFFICULTY_LEVELS.map((level) => (
+            <option key={level} value={String(level)}>
+              {difficultyOptionLabel(level)}
+            </option>
+          ))}
         </select>
 
         {mode === 'words' && (

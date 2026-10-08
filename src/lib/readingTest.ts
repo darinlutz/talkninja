@@ -10,23 +10,27 @@ import {
 } from '@/lib/wordAlignment';
 
 export const MIN_READING_TEST_DIFFICULTY = 1;
-export const MAX_READING_TEST_DIFFICULTY = 10;
+export const MAX_READING_TEST_DIFFICULTY = 8;
 
-// What each step of the 1-10 Difficulty scale asks for, so neighboring
-// levels stay distinguishable (1 = Very Easy, 3 = Easy, 5 = Medium,
-// 10 = Very Hard). Shared by the Reading Test and Writing Test tabs.
+// What each step of the 1-8 Difficulty scale (one per belt level) asks for,
+// so neighboring levels stay distinguishable (1 = Very Easy, 3 = Easy,
+// 5 = Medium, 8 = Very Hard). Shared by the Reading Test and Writing Test tabs.
 const DIFFICULTY_GUIDE: Record<number, string> = {
   1: 'Very easy: 3-5 words, present tense, only the most common everyday words.',
-  2: 'Very easy to easy: 4-6 words, present tense, very common words.',
-  3: 'Easy: 5-8 words, simple present or past tense, common vocabulary.',
-  4: 'Easy to medium: 7-10 words, simple tenses, may include one time or place phrase.',
-  5: 'Medium: 9-13 words, past/present/future tenses, everyday topics, one conjunction allowed.',
-  6: 'Medium to hard: 11-15 words, a compound sentence or one subordinate clause.',
-  7: 'Hard: 13-18 words, subordinate clauses, less common vocabulary.',
-  8: 'Hard: 15-22 words, multiple clauses, conditional or comparative structures.',
-  9: 'Very hard: 18-26 words, complex grammar, abstract topics, idiomatic expressions.',
-  10: 'Very hard: 22-32 words, advanced vocabulary, nested clauses, nuanced or formal register.',
+  2: 'Very easy to easy: 4-7 words, present tense, very common words.',
+  3: 'Easy: 6-9 words, simple present or past tense, common vocabulary.',
+  4: 'Easy to medium: 8-12 words, simple tenses, may include one time or place phrase or one conjunction.',
+  5: 'Medium: 10-15 words, past/present/future tenses, a compound sentence or one subordinate clause.',
+  6: 'Hard: 13-18 words, subordinate clauses, less common vocabulary.',
+  7: 'Very hard: 16-24 words, multiple clauses, conditional or comparative structures, idiomatic expressions.',
+  8: 'Very hard: 20-32 words, advanced vocabulary, nested clauses, nuanced or formal register.',
 };
+
+// The DIFFICULTY_GUIDE entry, for other prompts on the same scale (Writing
+// practice, Friend)
+export function difficultyGuide(difficulty: number): string {
+  return DIFFICULTY_GUIDE[difficulty];
+}
 
 export function isValidTestDifficulty(difficulty: number): boolean {
   return (
@@ -38,7 +42,7 @@ export function isValidTestDifficulty(difficulty: number): boolean {
 
 const SENTENCE_INSTRUCTIONS =
   'Write one random, natural {learnLanguage} sentence at this difficulty level ' +
-  '(1 = very easy, 10 = very hard): {difficulty}/10 — {difficultyGuide}\n' +
+  '(1 = very easy, 8 = very hard): {difficulty}/8 — {difficultyGuide}\n' +
   '{topicInstruction}\n\n';
 
 const RANDOM_TOPIC = 'Pick a varied, random everyday topic each time.';
@@ -153,7 +157,7 @@ const SENTENCE_PROMPT = ChatPromptTemplate.fromMessages([
   ['user', 'Generate the sentence.'],
 ]);
 
-// A random sentence and its translation at a 1-10 difficulty, for the
+// A random sentence and its translation at a 1-8 difficulty, for the
 // Writing Test tab.
 export async function generateTestSentence(
   learnLanguage: Language,

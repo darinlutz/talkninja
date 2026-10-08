@@ -10,6 +10,8 @@ import BeltIcon from '@/components/BeltIcon';
 import DeleteLanguageButton from '@/components/DeleteLanguageButton';
 import SheetSetup from '@/components/SheetSetup';
 import CustomAgentInstructionsForm from '@/components/CustomAgentInstructionsForm';
+import LanguageSetupForm from '@/components/LanguageSetupForm';
+import { DEFAULT_LEARN_LANGUAGE, DEFAULT_USER_LANGUAGE } from '@/lib/languages';
 import { getCustomAgentInstructions, MAX_CUSTOM_INSTRUCTIONS_LENGTH } from '@/lib/customAgentInstructions';
 
 // Green for a current subscription, red once it's canceled or expired,
@@ -104,13 +106,22 @@ export default async function AccountPage() {
                   value="lifetime"
                   className="w-full px-6 py-3 rounded-lg font-semibold text-white bg-gradient-to-r from-powder-500 to-powder-600 hover:from-powder-600 hover:to-powder-500 transition-colors"
                 >
-                  Lifetime Subscription
+                  {isMonthly ? 'Upgrade to Lifetime Subscription' : 'Lifetime Subscription'}
                 </button>
               )}
             </form>
           )}
 
           {isMonthly && <CancelSubscriptionButton />}
+        </div>
+
+        <div className="bg-slate-50 rounded-xl border border-slate-200 p-6 sm:p-8">
+          <h2 className="text-2xl font-bold text-dark-blue mb-2">Language Setup</h2>
+          {/* Same defaults as the Language page uses when nothing is saved */}
+          <LanguageSetupForm
+            initialUserLanguage={user.nativeLanguage ?? DEFAULT_USER_LANGUAGE}
+            initialLearnLanguage={user.activeLearningLanguage ?? DEFAULT_LEARN_LANGUAGE}
+          />
         </div>
 
         <div className="bg-slate-50 rounded-xl border border-slate-200 p-6 sm:p-8">

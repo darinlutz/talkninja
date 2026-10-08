@@ -1,14 +1,15 @@
 import { NextResponse } from 'next/server';
 import { getRandomSentence, type Difficulty } from '@/lib/language';
-
-const VALID_DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard'];
+import { isValidTestDifficulty, MIN_READING_TEST_DIFFICULTY } from '@/lib/readingTest';
 
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
-    const complexity: Difficulty = VALID_DIFFICULTIES.includes(body.complexity)
-      ? body.complexity
-      : 'easy';
+    // A level on the 1-8 Difficulty scale, sent as a string or a number
+    const requestedComplexity = Number(body.complexity);
+    const complexity: Difficulty = isValidTestDifficulty(requestedComplexity)
+      ? requestedComplexity
+      : MIN_READING_TEST_DIFFICULTY;
     const usedWords: string[] = Array.isArray(body.usedWords) ? body.usedWords : [];
     const usedSentences: string[] = Array.isArray(body.usedSentences) ? body.usedSentences : [];
 

@@ -3,6 +3,7 @@ import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { ChatOpenAI } from '@langchain/openai';
 import { z } from 'zod';
 import { getVocabSheetCsvUrl } from './vocabSheet';
+import { difficultyGuide, MAX_READING_TEST_DIFFICULTY } from './readingTest';
 
 // The sheet lays out several categories side-by-side (English | Vietnamese
 // column pairs, separated by blank spacer columns): row 1 holds the category
@@ -16,25 +17,21 @@ const DATA_START_ROW = 4;
 // they haven't already memorized.
 const EXCLUDED_CATEGORY = 'SENTENCES';
 
-export type Difficulty = 'easy' | 'medium' | 'hard';
+// A level on the 1-8 Difficulty scale shared with the test tabs (see
+// readingTest.ts)
+export type Difficulty = number;
 
-const MAX_WORDS_PER_CATEGORY: Record<Difficulty, number> = {
-  easy: 3,
-  medium: 6,
-  hard: 10,
-};
+// More words per category at higher levels: 3 at level 1 up to 10 at level 8
+function maxWordsPerCategory(difficulty: Difficulty): number {
+  return difficulty + 2;
+}
 
-const DIFFICULTY_INSTRUCTIONS: Record<Difficulty, string> = {
-  easy:
-    'Keep the sentence VERY SIMPLE: 3-5 words total, a basic subject-verb-object (or simpler) ' +
-    'structure, and no conjunctions, clauses, or extra descriptive words.',
-  medium:
-    'Make the sentence MODERATELY COMPLEX: about 6-9 words, optionally including one adjective, ' +
-    'preposition, number, or simple conjunction.',
-  hard:
-    'Make the sentence MORE COMPLEX: 10 or more words, combining multiple categories (e.g. numbers, ' +
-    'classifiers, conjunctions, possession statements) with richer grammar and structure.',
-};
+function difficultyInstructions(difficulty: Difficulty): string {
+  return (
+    `Write the sentence at difficulty level ${difficulty}/${MAX_READING_TEST_DIFFICULTY} ` +
+    `(1 = very easy, ${MAX_READING_TEST_DIFFICULTY} = very hard): ${difficultyGuide(difficulty)}`
+  );
+}
 
 export interface VocabEntry {
   category: string;
@@ -190,7 +187,7 @@ function sampleVocabulary(
     byCategory.set(entry.category, list);
   }
 
-  const maxPerCategory = MAX_WORDS_PER_CATEGORY[difficulty];
+  const maxPerCategory = maxWordsPerCategory(difficulty);
   const sample: VocabEntry[] = [];
   for (const list of byCategory.values()) {
     const unused = list.filter((entry) => !usedWords.has(entry.vietnamese));
@@ -268,7 +265,6 @@ async function generateSentenceNode(
 ): Promise<Partial<LanguageStateType>> {
   const sample = sampleVocabulary(state.vocabulary, state.difficulty, new Set(state.usedWords));
   const vocabularyText = formatVocabularyForPrompt(sample);
-  const difficultyInstructions = DIFFICULTY_INSTRUCTIONS[state.difficulty];
   const recentSentences =
     state.usedSentences.length > 0 ? state.usedSentences.join('\n') : 'None yet.';
 
@@ -278,7 +274,7 @@ async function generateSentenceNode(
 
   const response = await chain.invoke({
     vocabulary: vocabularyText,
-    difficultyInstructions,
+    difficultyInstructions: difficultyInstructions(state.difficulty),
     recentSentences,
   });
   return {
@@ -299,7 +295,7 @@ const graph = new StateGraph(LanguageState)
   .compile();
 
 export async function getRandomSentence(
-  difficulty: Difficulty = 'easy',
+  difficulty: Difficulty = 1,
   usedWords: string[] = [],
   usedSentences: string[] = []
 ): Promise<{ vietnamese: string; english: string; wordsUsed: string[] }> {

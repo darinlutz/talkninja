@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
-import { chatWithFriend, ChatMessage } from '@/lib/friend';
+import { chatWithFriend, ChatMessage, DEFAULT_FRIEND_DIFFICULTY } from '@/lib/friend';
 import { Difficulty } from '@/lib/language';
 import { Language } from '@/lib/translate';
 import { LANGUAGES } from '@/lib/languages';
+import { isValidTestDifficulty } from '@/lib/readingTest';
 
 interface FriendRequest {
   history: ChatMessage[];
@@ -10,7 +11,6 @@ interface FriendRequest {
   language?: Language;
 }
 
-const VALID_DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard'];
 const VALID_LANGUAGES: readonly Language[] = LANGUAGES;
 
 export async function POST(request: Request) {
@@ -21,9 +21,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing conversation history' }, { status: 400 });
     }
 
-    const difficulty: Difficulty = VALID_DIFFICULTIES.includes(body.difficulty as Difficulty)
-      ? (body.difficulty as Difficulty)
-      : 'medium';
+    const requestedDifficulty = Number(body.difficulty);
+    const difficulty: Difficulty = isValidTestDifficulty(requestedDifficulty)
+      ? requestedDifficulty
+      : DEFAULT_FRIEND_DIFFICULTY;
 
     const language: Language = VALID_LANGUAGES.includes(body.language as Language)
       ? (body.language as Language)

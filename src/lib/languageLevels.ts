@@ -7,7 +7,7 @@ import type { Language } from './languages';
 export type LanguageActivity = 'training' | 'reading' | 'writing';
 export type NextStep = LanguageActivity | 'complete';
 
-export const MAX_BELT_LEVEL = 10;
+export const MAX_BELT_LEVEL = 8;
 // Reading/Writing test score (percent) needed to pass
 export const PASSING_SCORE = 80;
 

@@ -4,6 +4,7 @@ import { AIMessage, BaseMessage, HumanMessage } from '@langchain/core/messages';
 import { ChatOpenAI } from '@langchain/openai';
 import { Difficulty, fetchVocabulary, VocabEntry } from './language';
 import { Language } from './translate';
+import { difficultyGuide, MAX_READING_TEST_DIFFICULTY } from './readingTest';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -14,18 +15,16 @@ export interface ChatMessage {
 // words rather than quizzing on sentences the user already has memorized.
 const EXCLUDED_CATEGORY = 'SENTENCES';
 const MAX_VOCAB_WORDS = 40;
+// Short, simple questions until the user picks a level
+export const DEFAULT_FRIEND_DIFFICULTY = 3;
 
-const DIFFICULTY_INSTRUCTIONS: Record<Difficulty, string> = {
-  easy:
-    'Ask VERY SIMPLE questions: 3-6 words, basic present-tense grammar, one idea at a time, ' +
-    'no conjunctions or clauses.',
-  medium:
-    'Ask MODERATELY COMPLEX questions: about 7-10 words, optionally including an adjective, ' +
-    'preposition, number, or simple conjunction.',
-  hard:
-    'Ask MORE COMPLEX questions: 11 or more words, combining multiple ideas, tenses, or clauses ' +
-    'with richer grammar and structure.',
-};
+// Questions follow the same 1-8 scale as the test tabs' sentences
+function difficultyInstructions(difficulty: Difficulty): string {
+  return (
+    `Write every question at difficulty level ${difficulty}/${MAX_READING_TEST_DIFFICULTY} ` +
+    `(1 = very easy, ${MAX_READING_TEST_DIFFICULTY} = very hard): ${difficultyGuide(difficulty)}`
+  );
+}
 
 function sampleVocabulary(entries: VocabEntry[]): VocabEntry[] {
   const pool = entries.filter((entry) => entry.category !== EXCLUDED_CATEGORY);
@@ -67,7 +66,6 @@ async function fetchVocabularyNode(): Promise<Partial<FriendStateType>> {
 
 async function chatNode(state: FriendStateType): Promise<Partial<FriendStateType>> {
   const vocabularyText = formatVocabularyForPrompt(state.vocabulary);
-  const difficultyInstructions = DIFFICULTY_INSTRUCTIONS[state.difficulty];
   const history: BaseMessage[] = state.history.map((message) =>
     message.role === 'user' ? new HumanMessage(message.content) : new AIMessage(message.content)
   );
@@ -77,7 +75,7 @@ async function chatNode(state: FriendStateType): Promise<Partial<FriendStateType
 
   const response = await chain.invoke({
     vocabulary: vocabularyText,
-    difficultyInstructions,
+    difficultyInstructions: difficultyInstructions(state.difficulty),
     history,
     language: state.language,
   });
@@ -99,7 +97,7 @@ const graph = new StateGraph(FriendState)
 
 export async function chatWithFriend(
   history: ChatMessage[],
-  difficulty: Difficulty = 'medium',
+  difficulty: Difficulty = DEFAULT_FRIEND_DIFFICULTY,
   language: Language = 'Vietnamese'
 ): Promise<string> {
   if (!process.env.OPENAI_API_KEY) {

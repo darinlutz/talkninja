@@ -17,7 +17,6 @@ import {
   playChime,
   playError,
   speakText,
-  TEST_LANGUAGES,
   TEST_LENGTH,
   withLanguages,
   type TestDifficulty,
@@ -57,10 +56,9 @@ export default function WritingTest({
   showDifficulty,
   onProgressRecorded,
 }: WritingTestProps) {
-  const [wordLanguage, setWordLanguage] = useState<Language>(learnLanguage);
-  const [appliedWordLanguage, setAppliedWordLanguage] = useState(learnLanguage);
-  const [answerLanguage, setAnswerLanguage] = useState<Language>(userLanguage);
-  const [appliedAnswerLanguage, setAppliedAnswerLanguage] = useState(userLanguage);
+  // The Account page's "and want to learn" and "I speak" languages
+  const wordLanguage = learnLanguage;
+  const answerLanguage = userLanguage;
   const [difficulty, setDifficulty] = useState<TestDifficulty>('words');
   useWorkingLevelDefault(progressFor(progressByLanguage, wordLanguage), (level) =>
     setDifficulty(String(level) as TestDifficulty)
@@ -91,17 +89,6 @@ export default function WritingTest({
   // Resets on page reload.
   const history = useRef<TestHistory>({ usedWordsByCategory: {}, recentSentences: [] });
   const nextItemId = useRef(1);
-
-  // Lets the page-level "I want to learn" / "I speak" selectors drive this
-  // tab's comboboxes without taking away the user's ability to change them.
-  if (learnLanguage !== appliedWordLanguage) {
-    setAppliedWordLanguage(learnLanguage);
-    setWordLanguage(learnLanguage);
-  }
-  if (userLanguage !== appliedAnswerLanguage) {
-    setAppliedAnswerLanguage(userLanguage);
-    setAnswerLanguage(userLanguage);
-  }
 
   const wordText = item?.texts[wordLanguage] ?? '';
   const answerText = item?.texts[answerLanguage] ?? '';
@@ -253,8 +240,6 @@ export default function WritingTest({
   };
 
   const maskText = (text: string) => text.replace(/\S/g, '•');
-  const selectClassName =
-    'px-2 py-1 text-sm bg-white border border-slate-300 rounded-lg text-dark-blue focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors';
   const buttonClassName =
     'px-4 py-2 bg-gradient-to-r from-powder-500 to-powder-600 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-powder-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 disabled:hover:scale-100';
   const spinner = (
@@ -266,19 +251,7 @@ export default function WritingTest({
       {/* Word/Sentence Display */}
       <div>
         <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
-          <select
-            id="writingTestWordLanguage"
-            name="writingTestWordLanguage"
-            value={wordLanguage}
-            onChange={(e) => setWordLanguage(e.target.value as Language)}
-            className={selectClassName}
-          >
-            {TEST_LANGUAGES.map((lang) => (
-              <option key={lang} value={lang}>
-                {lang}
-              </option>
-            ))}
-          </select>
+          <span className="text-sm font-medium text-dark-blue">{wordLanguage}</span>
           <button
             type="button"
             onClick={() => setShowText(!showText)}
@@ -413,19 +386,7 @@ export default function WritingTest({
 
       {/* Translation Display */}
       <div>
-        <select
-          id="writingTestAnswerLanguage"
-          name="writingTestAnswerLanguage"
-          value={answerLanguage}
-          onChange={(e) => setAnswerLanguage(e.target.value as Language)}
-          className={`mb-2 ${selectClassName}`}
-        >
-          {TEST_LANGUAGES.map((lang) => (
-            <option key={lang} value={lang}>
-              {lang}
-            </option>
-          ))}
-        </select>
+        <span className="block mb-2 text-sm font-medium text-dark-blue">{answerLanguage}</span>
         {solved && currentAlignment ? (
           <div className="w-full px-4 py-3 bg-white border border-slate-300 rounded-lg text-dark-blue whitespace-pre-wrap break-words">
             <ColoredSegments segments={currentAlignment.translationSegments} />
