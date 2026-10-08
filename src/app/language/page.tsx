@@ -95,13 +95,19 @@ export default function LanguagePage() {
 }
 
 function Language() {
-  // ?tab= and ?learn= open a given tab and language, e.g. the Account
-  // page's "Continue training" link
+  // There's no tab bar: ?tab= picks the tab (My Dojo's cards for practice,
+  // the Account page's "Continue training" for Training and the tests), as
+  // does the banner's "Next step" link, so learners reach a test only when
+  // it's their next step. ?learn= picks the language.
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState<Tab>(() => {
-    const tab = searchParams.get('tab');
-    return TABS.find((t) => t === tab) ?? 'reading';
-  });
+  const tabParam = TABS.find((t) => t === searchParams.get('tab')) ?? 'reading';
+  const [activeTab, setActiveTab] = useState<Tab>(tabParam);
+  // Follow a new ?tab= link even when the page is already open
+  const [appliedTabParam, setAppliedTabParam] = useState(tabParam);
+  if (tabParam !== appliedTabParam) {
+    setAppliedTabParam(tabParam);
+    setActiveTab(tabParam);
+  }
   // Every tab's languages come from the Account page's Language Setup: the
   // "I speak" language for answers and translations, and the "and want to
   // learn" language for the words being practiced. A ?learn= link (the
@@ -913,80 +919,6 @@ function Language() {
         className="py-16 px-6 sm:px-10 lg:px-16 bg-white flex flex-col items-center scroll-mt-4"
       >
         <div className="w-full max-w-5xl">
-          {/* Tab Navigation */}
-          <div className="flex gap-4 mb-6 border-b border-slate-200 overflow-x-auto">
-            <button
-              onClick={() => setActiveTab('training')}
-              className={`px-6 py-3 font-semibold border-b-2 whitespace-nowrap flex-shrink-0 transition-colors ${
-                activeTab === 'training'
-                  ? 'text-powder-600 border-powder-600'
-                  : 'text-slate-600 border-transparent hover:text-dark-blue'
-              }`}
-            >
-              Training
-            </button>
-            <button
-              onClick={() => setActiveTab('readingTest')}
-              className={`px-6 py-3 font-semibold border-b-2 whitespace-nowrap flex-shrink-0 transition-colors ${
-                activeTab === 'readingTest'
-                  ? 'text-powder-600 border-powder-600'
-                  : 'text-slate-600 border-transparent hover:text-dark-blue'
-              }`}
-            >
-              Reading Test
-            </button>
-            <button
-              onClick={() => setActiveTab('writingTest')}
-              className={`px-6 py-3 font-semibold border-b-2 whitespace-nowrap flex-shrink-0 transition-colors ${
-                activeTab === 'writingTest'
-                  ? 'text-powder-600 border-powder-600'
-                  : 'text-slate-600 border-transparent hover:text-dark-blue'
-              }`}
-            >
-              Writing Test
-            </button>
-            <button
-              onClick={() => setActiveTab('reading')}
-              className={`px-6 py-3 font-semibold border-b-2 whitespace-nowrap flex-shrink-0 transition-colors ${
-                activeTab === 'reading'
-                  ? 'text-powder-600 border-powder-600'
-                  : 'text-slate-600 border-transparent hover:text-dark-blue'
-              }`}
-            >
-              Reading & Speaking
-            </button>
-            <button
-              onClick={() => setActiveTab('writing')}
-              className={`px-6 py-3 font-semibold border-b-2 whitespace-nowrap flex-shrink-0 transition-colors ${
-                activeTab === 'writing'
-                  ? 'text-powder-600 border-powder-600'
-                  : 'text-slate-600 border-transparent hover:text-dark-blue'
-              }`}
-            >
-              Writing
-            </button>
-            <button
-              onClick={() => setActiveTab('translator')}
-              className={`px-6 py-3 font-semibold border-b-2 whitespace-nowrap flex-shrink-0 transition-colors ${
-                activeTab === 'translator'
-                  ? 'text-powder-600 border-powder-600'
-                  : 'text-slate-600 border-transparent hover:text-dark-blue'
-              }`}
-            >
-              Translator
-            </button>
-            <button
-              onClick={() => setActiveTab('friend')}
-              className={`px-6 py-3 font-semibold border-b-2 whitespace-nowrap flex-shrink-0 transition-colors ${
-                activeTab === 'friend'
-                  ? 'text-powder-600 border-powder-600'
-                  : 'text-slate-600 border-transparent hover:text-dark-blue'
-              }`}
-            >
-              Friend
-            </button>
-          </div>
-
           {/* Tab Content (re-keyed by "Next step" so the tab starts fresh at
               the user's working level) */}
           <div key={tabContentKey} className="bg-slate-50 rounded-xl border border-slate-200 p-8">
