@@ -85,6 +85,10 @@ const TABS = [
 ] as const;
 type Tab = (typeof TABS)[number];
 
+function isTestTab(tab: Tab): boolean {
+  return tab === 'readingTest' || tab === 'writingTest';
+}
+
 // useSearchParams needs a Suspense boundary for the production build
 export default function LanguagePage() {
   return (
@@ -102,11 +106,15 @@ function Language() {
   const searchParams = useSearchParams();
   const tabParam = TABS.find((t) => t === searchParams.get('tab')) ?? 'reading';
   const [activeTab, setActiveTab] = useState<Tab>(tabParam);
+  // A test opened by link (or typed into the address bar) is only shown if
+  // it's the learner's next step; that's checked once their progress loads
+  const [testToCheck, setTestToCheck] = useState(isTestTab(tabParam));
   // Follow a new ?tab= link even when the page is already open
   const [appliedTabParam, setAppliedTabParam] = useState(tabParam);
   if (tabParam !== appliedTabParam) {
     setAppliedTabParam(tabParam);
     setActiveTab(tabParam);
+    setTestToCheck(isTestTab(tabParam));
   }
   // Every tab's languages come from the Account page's Language Setup: the
   // "I speak" language for answers and translations, and the "and want to
@@ -228,6 +236,21 @@ function Language() {
       saveLanguagePreferences({ activeLearningLanguage: linkedLearnLanguage }).catch(() => {});
     }
   }, [linkedLearnLanguage]);
+
+  // Once progress has loaded, a test that isn't the learner's next step
+  // becomes their actual next step (Reading & Speaking once every belt is
+  // earned). Checked once per link, so a test that's passed and moves them
+  // on stays open to show its score. Admins can open any test.
+  if (testToCheck && progressByLanguage !== undefined) {
+    setTestToCheck(false);
+    const progress = progressByLanguage?.[learnLanguage] ?? startingProgress(learnLanguage);
+    const nextTab = TABS.find((t) => t === nextStepTab(progress)) ?? 'reading';
+    if (!isAdmin && nextTab !== activeTab) {
+      setActiveTab(nextTab);
+    }
+  }
+  // Nothing is shown in place of a test until it's been checked
+  const shownTab: Tab | null = testToCheck ? null : activeTab;
 
   // Bumped by the banner's "Next step" link to remount the tab content, so
   // its Difficulty resets to the level being worked on
@@ -922,8 +945,10 @@ function Language() {
           {/* Tab Content (re-keyed by "Next step" so the tab starts fresh at
               the user's working level) */}
           <div key={tabContentKey} className="bg-slate-50 rounded-xl border border-slate-200 p-8">
+            {shownTab === null && <p className="text-slate-500">Loading…</p>}
+
             {/* Training Tab */}
-            {activeTab === 'training' && (
+            {shownTab === 'training' && (
               <div>
                 <h2 className="text-2xl font-bold text-dark-blue mb-2">Training</h2>
                 <p className="text-slate-600 mb-8">
@@ -940,7 +965,7 @@ function Language() {
             )}
 
             {/* Reading Test Tab */}
-            {activeTab === 'readingTest' && (
+            {shownTab === 'readingTest' && (
               <div>
                 <h2 className="text-2xl font-bold text-dark-blue mb-2">Reading Test</h2>
                 <p className="text-slate-600 mb-8">
@@ -957,7 +982,7 @@ function Language() {
             )}
 
             {/* Writing Test Tab */}
-            {activeTab === 'writingTest' && (
+            {shownTab === 'writingTest' && (
               <div>
                 <h2 className="text-2xl font-bold text-dark-blue mb-2">Writing Test</h2>
                 <p className="text-slate-600 mb-8">
@@ -974,7 +999,7 @@ function Language() {
             )}
 
             {/* Reading & Speaking Tab */}
-            {activeTab === 'reading' && (
+            {shownTab === 'reading' && (
               <div>
                 <h2 className="text-2xl font-bold text-dark-blue mb-2">Reading & Speaking</h2>
                 <p className="text-slate-600 mb-8">
@@ -985,7 +1010,7 @@ function Language() {
             )}
 
             {/* Writing Tab */}
-            {activeTab === 'writing' && (
+            {shownTab === 'writing' && (
               <div>
                 <h2 className="text-2xl font-bold text-dark-blue mb-2">Writing</h2>
                 <p className="text-slate-600 mb-8">
@@ -1205,7 +1230,7 @@ function Language() {
             )}
 
             {/* Translator Tab */}
-            {activeTab === 'translator' && (
+            {shownTab === 'translator' && (
               <div>
                 <h2 className="text-2xl font-bold text-dark-blue mb-2">Translator</h2>
                 <p className="text-slate-600 mb-8">
@@ -1331,7 +1356,7 @@ function Language() {
             )}
 
             {/* Friend Tab */}
-            {activeTab === 'friend' && (
+            {shownTab === 'friend' && (
               <div>
                 <h2 className="text-2xl font-bold text-dark-blue mb-2">Friend</h2>
                 <p className="text-slate-600 mb-8">
