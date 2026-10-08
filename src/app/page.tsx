@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import LandingPage from '@/components/LandingPage';
+import { getPlanPrices } from '@/lib/planPrices';
+import { getCurrentUser } from '@/lib/session';
 
 export const metadata: Metadata = {
   title: 'TalkNinja. New Language. Next Belt.',
@@ -16,6 +18,7 @@ export const metadata: Metadata = {
   },
 };
 
-export default function Home() {
-  return <LandingPage />;
+export default async function Home() {
+  const [prices, user] = await Promise.all([getPlanPrices(), getCurrentUser()]);
+  return <LandingPage prices={prices} accountStatus={user?.accountStatus ?? null} />;
 }

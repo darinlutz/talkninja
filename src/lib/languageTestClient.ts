@@ -243,10 +243,10 @@ export { PASSING_SCORE } from '@/lib/languageLevels';
 export const DIFFICULTY_LEVELS = Array.from({ length: MAX_BELT_LEVEL }, (_, i) => i + 1);
 
 const DIFFICULTY_LABELS: Record<number, string> = {
-  1: 'Very Easy',
+  1: 'Beginner',
   3: 'Easy',
-  5: 'Medium',
-  8: 'Very Hard',
+  5: 'Intermediate',
+  8: 'Difficult',
 };
 
 export const difficultyOptionLabel = (level: number) =>

@@ -144,6 +144,12 @@
 .plan li { display: flex; gap: 10px; align-items: center; }
 .plan li svg { width: 14px; height: 14px; }
 .plan > button { margin-top: auto; width: 100%; }
+/* ".plan > p" so these win over the plain ".plan > p" rule above */
+.plan > p.plan-price { font-family: var(--font-space-grotesk), sans-serif; font-size: 40px; font-weight: 700; line-height: 1.1; opacity: 1; margin-top: 18px; display: flex; align-items: baseline; gap: 8px; }
+.plan-price span { font-family: var(--font-inter), sans-serif; font-size: 13px; font-weight: 500; opacity: .75; }
+.plan-form { margin-top: auto; }
+.plan-form button { width: 100%; }
+.plan > p.plan-status { opacity: 1; margin-top: auto; padding: 16px; border-radius: 12px; text-align: center; font-size: 13px; font-weight: 600; background: color-mix(in oklab, var(--ink-inverse) 15%, transparent); }
 .pricing-note { text-align: center; color: var(--inverse-muted); font-size: 11px; margin-top: 25px; }
 .belt-dialog-list { display: grid; gap: 12px; margin-top: 12px; }
 .belt-dialog-item { display: flex; gap: 20px; align-items: center; border-bottom: 1px solid var(--border); padding: 14px 0; }

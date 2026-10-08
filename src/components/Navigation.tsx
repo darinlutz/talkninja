@@ -71,7 +71,7 @@ export default function Navigation({ user }: NavigationProps) {
             </button>
             {!user?.hasLifetime && (
               <Link
-                href="/pricing"
+                href="/#plans"
                 className="px-3 py-2 text-dark-blue hover:text-powder-600 transition-colors font-medium"
               >
                 Pricing
@@ -171,7 +171,7 @@ export default function Navigation({ user }: NavigationProps) {
             </button>
             {!user?.hasLifetime && (
               <Link
-                href="/pricing"
+                href="/#plans"
                 className="block px-3 py-2 rounded-md text-base font-medium text-dark-blue hover:text-powder-600 hover:bg-slate-100 transition-colors"
                 onClick={closeMenu}
               >

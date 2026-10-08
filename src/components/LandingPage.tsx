@@ -2,18 +2,28 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import { ArrowRight, CalendarDays, Check, CheckCircle2, GraduationCap, InfinityIcon } from 'lucide-react';
+import { ArrowRight, Check, CheckCircle2, GraduationCap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import LearningPreview from '@/components/LearningPreview';
+import PricingPlans from '@/components/PricingPlans';
 import { belts } from '@/lib/landingSamples';
+import type { PlanPrices } from '@/lib/planPrices';
 import mascot from '@/assets/ninja-mascot.jpg';
 import vocabulary from '@/assets/vocabulary-sync.jpg';
 
 // The home page, brought over from color-belt-lingo. Its styles are in
 // src/app/landing.css, scoped under .landing.
-export default function LandingPage() {
-  const [dialog, setDialog] = useState<'belts' | 'Monthly' | 'Lifetime' | null>(null);
+export default function LandingPage({
+  prices,
+  accountStatus,
+}: {
+  // For the plans (#plans): each plan's Stripe price, and the signed-in
+  // user's account status (null when signed out)
+  prices: PlanPrices;
+  accountStatus: string | null;
+}) {
+  const [dialog, setDialog] = useState<'belts' | null>(null);
 
   return (
     <div className="landing">
@@ -114,50 +124,7 @@ export default function LandingPage() {
             <h2>Choose your path to mastery.</h2>
             <p>A little practice today. A whole new world tomorrow.</p>
           </div>
-          <div className="pricing-grid">
-            <article className="plan">
-              <span className="plan-label">
-                <CalendarDays size={16} /> MONTHLY MEMBERSHIP
-              </span>
-              <h3>One month at a time.</h3>
-              <p>Make language learning part of your routine.</p>
-              <ul>
-                <li>
-                  <Check /> Color-connected vocabulary
-                </li>
-                <li>
-                  <Check /> Reading, writing, and voice practice
-                </li>
-                <li>
-                  <Check /> Belt-by-belt progress
-                </li>
-              </ul>
-              <Button variant="inverse" size="hero" onClick={() => setDialog('Monthly')}>
-                Explore Monthly <ArrowRight />
-              </Button>
-            </article>
-            <article className="plan plan-lifetime">
-              <span className="plan-label">
-                <InfinityIcon size={18} /> LIFETIME MEMBERSHIP
-              </span>
-              <h3>A lifelong adventure.</h3>
-              <p>Keep your curiosity. Keep your membership.</p>
-              <ul>
-                <li>
-                  <Check /> A lasting place in the dojo
-                </li>
-                <li>
-                  <Check /> Practice conversations with Friend
-                </li>
-                <li>
-                  <Check /> Your own vocabulary, your own journey
-                </li>
-              </ul>
-              <Button variant="dojo" size="hero" onClick={() => setDialog('Lifetime')}>
-                Explore Lifetime <ArrowRight />
-              </Button>
-            </article>
-          </div>
+          <PricingPlans prices={prices} accountStatus={accountStatus} />
           <p className="pricing-note">Same curiosity. Two ways to keep it going.</p>
         </div>
       </section>
@@ -198,18 +165,7 @@ export default function LandingPage() {
                 </a>
               </Button>
             </>
-          ) : (
-            <>
-              <DialogTitle>{dialog} membership</DialogTitle>
-              <DialogDescription>
-                Membership purchases aren’t available on this preview yet. Pricing and the link to the existing
-                app are still to come.
-              </DialogDescription>
-              <Button variant="ninja" onClick={() => setDialog(null)}>
-                Keep exploring
-              </Button>
-            </>
-          )}
+          ) : null}
         </DialogContent>
       </Dialog>
     </div>

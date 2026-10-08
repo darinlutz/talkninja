@@ -13,8 +13,8 @@ export const MIN_READING_TEST_DIFFICULTY = 1;
 export const MAX_READING_TEST_DIFFICULTY = 8;
 
 // What each step of the 1-8 Difficulty scale (one per belt level) asks for,
-// so neighboring levels stay distinguishable (1 = Very Easy, 3 = Easy,
-// 5 = Medium, 8 = Very Hard). Shared by the Reading Test and Writing Test tabs.
+// so neighboring levels stay distinguishable (1 = Beginner, 3 = Easy,
+// 5 = Intermediate, 8 = Difficult in the comboboxes). Shared by the Reading Test and Writing Test tabs.
 const DIFFICULTY_GUIDE: Record<number, string> = {
   1: 'Very easy: 3-5 words, present tense, only the most common everyday words.',
   2: 'Very easy to easy: 4-7 words, present tense, very common words.',
