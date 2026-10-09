@@ -362,41 +362,50 @@ export async function setLanguagePreferences(
   );
 }
 
-// Links a completed Checkout Session to the user who started it.
+// Links a completed Checkout Session to the user who started it. Returns
+// the user's email when this call started the subscription, or null when an
+// earlier call already had.
 export async function startSubscription(
   userId: number,
   stripeCustomerId: string,
   stripeSubscriptionId: string
-): Promise<void> {
+): Promise<string | null> {
   await ensureUserSchema();
-  await query(
+  const [row] = await query(
     // Only once per subscription: the Thank You page and the webhook both
     // call this, and a second call mustn't restart the month
     `UPDATE "Users" SET stripe_customer_id = $1, stripe_subscription_id = $2, account_status = $5,
        subscription_end_date = $3
-     WHERE id = $4 AND stripe_subscription_id IS DISTINCT FROM $2`,
+     WHERE id = $4 AND stripe_subscription_id IS DISTINCT FROM $2
+     RETURNING email_address`,
     [stripeCustomerId, stripeSubscriptionId, oneMonthFrom(), userId, ACCOUNT_STATUS.monthly]
   );
+  return (row?.email_address as string | undefined) ?? null;
 }
 
 // A paid Lifetime purchase never expires. Clearing the subscription ID keeps
 // events from an earlier monthly subscription from changing the status.
-// Returns that earlier monthly subscription's ID, if any, so the caller can
-// cancel it in Stripe.
+// Returns the user's email and that earlier monthly subscription's ID, if
+// any, so the caller can cancel it in Stripe; or null when the account was
+// already Lifetime (the Thank You page and the webhook both call this).
 export async function grantLifetimeAccess(
   userId: number,
   stripeCustomerId: string | null
-): Promise<string | null> {
+): Promise<{ emailAddress: string; previousSubscriptionId: string | null } | null> {
   await ensureUserSchema();
   const [row] = await query(
     `UPDATE "Users" SET account_status = $3, subscription_end_date = NULL,
        stripe_subscription_id = NULL, stripe_customer_id = COALESCE($1, "Users".stripe_customer_id)
      FROM (SELECT id, stripe_subscription_id FROM "Users" WHERE id = $2) AS previous
-     WHERE "Users".id = previous.id
-     RETURNING previous.stripe_subscription_id AS previous_subscription_id`,
+     WHERE "Users".id = previous.id AND "Users".account_status IS DISTINCT FROM $3
+     RETURNING "Users".email_address, previous.stripe_subscription_id AS previous_subscription_id`,
     [stripeCustomerId, userId, ACCOUNT_STATUS.lifetime]
   );
-  return (row?.previous_subscription_id as string | null | undefined) ?? null;
+  if (!row) return null;
+  return {
+    emailAddress: row.email_address as string,
+    previousSubscriptionId: (row.previous_subscription_id as string | null) ?? null,
+  };
 }
 
 // Called on each successful monthly renewal payment.

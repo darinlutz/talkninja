@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { getCurrentUser } from '@/lib/session';
 import { recordCancellation } from '@/lib/users';
 import { ACCOUNT_STATUS } from '@/lib/accountStatus';
+import { notifyAdmin } from '@/lib/adminNotification';
 import { cancellationReasonLabel, MAX_CANCELLATION_NOTES_LENGTH } from '@/lib/cancellationReasons';
 
 // The My Account page's Cancel Subscription modal: cancels the Monthly
@@ -58,6 +59,7 @@ export async function POST(request: Request) {
     } catch (error) {
       console.error(`Saving cancellation of ${subscription.id} failed (Stripe cancelled it):`, error);
     }
+    await notifyAdmin('cancelled', user.emailAddress);
 
     return NextResponse.json({
       // Stripe's proof: the subscription's ID is its reference for this

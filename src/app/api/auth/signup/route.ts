@@ -3,6 +3,7 @@ import { createSession } from '@/lib/session';
 import { createUser, EmailTakenError } from '@/lib/users';
 import { isLanguage } from '@/lib/languages';
 import { startLanguage } from '@/lib/languageProgress';
+import { notifyAdmin } from '@/lib/adminNotification';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -41,6 +42,7 @@ export async function POST(request: Request) {
     await startLanguage(user.id, body.activeLearningLanguage).catch((error) =>
       console.error('Signup language start error:', error)
     );
+    await notifyAdmin('signup', user.emailAddress);
     return NextResponse.json({ user: { userName: user.userName } }, { status: 201 });
   } catch (error) {
     if (error instanceof EmailTakenError) {

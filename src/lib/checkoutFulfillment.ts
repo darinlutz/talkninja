@@ -1,5 +1,6 @@
 import type Stripe from 'stripe';
 import { grantLifetimeAccess, startSubscription } from './users';
+import { notifyAdmin } from './adminNotification';
 
 // Applies a completed Checkout Session to the account that started it
 // (client_reference_id): Monthly starts a one-month Monthly Subscription,
@@ -21,14 +22,17 @@ export async function fulfillCheckoutSession(stripe: Stripe, session: Stripe.Che
     // A delayed payment (e.g. a bank debit) completes the session before the
     // money arrives; checkout.session.async_payment_succeeded comes later
     if (session.payment_status !== 'paid') return;
-    const previousSubscriptionId = await grantLifetimeAccess(
+    const granted = await grantLifetimeAccess(
       userId,
       typeof session.customer === 'string' ? session.customer : null
     );
+    // Already applied by the other caller
+    if (!granted) return;
+    await notifyAdmin('lifetime', granted.emailAddress);
     // A monthly subscriber upgraded: stop charging them monthly
-    if (previousSubscriptionId) {
+    if (granted.previousSubscriptionId) {
       try {
-        await stripe.subscriptions.cancel(previousSubscriptionId);
+        await stripe.subscriptions.cancel(granted.previousSubscriptionId);
       } catch (error) {
         // e.g. it was already canceled; the account is Lifetime either way
         console.error('Failed to cancel monthly subscription after Lifetime purchase:', error);
@@ -48,5 +52,6 @@ export async function fulfillCheckoutSession(stripe: Stripe, session: Stripe.Che
     return;
   }
   // Subscription mode sessions only complete once the first payment succeeds
-  await startSubscription(userId, session.customer, session.subscription);
+  const emailAddress = await startSubscription(userId, session.customer, session.subscription);
+  if (emailAddress) await notifyAdmin('monthly', emailAddress);
 }
