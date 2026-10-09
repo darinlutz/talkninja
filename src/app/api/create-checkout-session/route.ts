@@ -81,8 +81,9 @@ export async function POST(request: Request) {
       // Back to the Pricing page, where Checkout was started
       cancel_url: `${origin}/pricing`,
       line_items: [{ price: price.id, quantity: 1 }],
-      // The webhook reads the plan to decide how to update the account
-      metadata: { plan },
+      // The webhook skips checkouts without our app tag, and reads the plan
+      // to decide how to update the account
+      metadata: { app: 'talkninja', plan },
     };
     if (sessionParams.mode === 'subscription') {
       sessionParams.payment_method_collection = 'always';

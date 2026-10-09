@@ -48,6 +48,8 @@ export async function POST(request: Request) {
       case 'checkout.session.completed':
       // Delayed payment methods (e.g. bank debits) confirm Lifetime payments here
       case 'checkout.session.async_payment_succeeded': {
+        // Other apps on this Stripe account send their checkouts here too
+        if (event.data.object.metadata?.app !== 'talkninja') break;
         // Shared with the Thank You page, which usually gets there first
         await fulfillCheckoutSession(stripe, event.data.object);
         break;
