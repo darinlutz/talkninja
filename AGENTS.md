@@ -21,7 +21,7 @@ The Language page (`src/app/language/page.tsx`) has these tabs:
 - **Translator** – translation with word-by-word alignment
 - **Friend** – conversation practice with an AI friend, with grammar checking
 
-The Account page's **Setup** section connects a Google Sheet of vocabulary (and repairs its format). Its **Customize Training Experience** section saves the user's own instructions (the `"CustomAgentInstructions"` table, one row per user, no row = none), which `wordPickerAgent.ts` uses to weight the words and sentence topics it picks. Monthly subscribers (only) get a **Cancel Subscription** button: its modal asks for a reason (`src/lib/cancellationReasons.ts`) and optional comments, cancels in Stripe, sets the status to `Cancelled`, and saves a row in the `"CancellationReason"` table (user, email, date, reason, notes, Stripe subscription ID and cancel time).
+The Account page's **Setup** section connects a Google Sheet of vocabulary (and repairs its format). Its **Customize Training Experience** section saves the user's own instructions (the `"CustomAgentInstructions"` table, one row per user, no row = none), which `wordPickerAgent.ts` uses to weight the words and sentence topics it picks. Subscribers (only) get a **Cancel Subscription** button: its modal asks for a reason (`src/lib/cancellationReasons.ts`) and optional comments, cancels in Stripe, sets the status to `Cancelled`, and saves a row in the `"CancellationReason"` table (user, email, date, reason, notes, Stripe subscription ID and cancel time).
 
 Accounts (signup, login, password reset) and Stripe subscriptions gate access.
 
@@ -50,9 +50,9 @@ npm run lint         # Run ESLint
 - `RESEND_FROM_EMAIL` - Sender for password reset emails, on a domain verified in Resend. Defaults to `onboarding@resend.dev`, which only delivers to the Resend account owner
 - `SITE_URL` - Public site URL used in password reset links. Set in production; locally it falls back to the request's host
 - `STRIPE_SECRET_KEY` - Stripe secret key (Checkout Session creation, success page lookup)
-- `STRIPE_MONTHLY_PRODUCT_ID` - Stripe Product ID for the Account page's Monthly Subscription button; its default Price must be recurring
-- `STRIPE_LIFETIME_PRODUCT_ID` - Stripe Product ID for the Lifetime Subscription button; its default Price must be one-time. A paid purchase sets the account status to `Lifetime Subscription` with no end date, and cancels any monthly subscription the user had
-- `STRIPE_WEBHOOK_SECRET` - Signing secret for `/api/stripe-webhook` (syncs `users.account_status` with the subscription: `Unsubscribed`, `Monthly Subscription`, `Lifetime Subscription`, `Cancelled`, `Expired`; see `src/lib/accountStatus.ts`). Must receive `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `invoice.paid` and `customer.subscription.deleted`
+- `TALKNINJA_MONTHLY_PRODUCT_ID` - Stripe Product ID for the Monthly Subscription plan; its default Price must be recurring monthly
+- `TALKNINJA_ANNUAL_PRODUCT_ID` - Stripe Product ID for the Annual Subscription plan; its default Price must be recurring yearly. The Pricing page shows how much cheaper it is than 12 months of Monthly (`src/lib/planPrices.ts`)
+- `STRIPE_WEBHOOK_SECRET` - Signing secret for `/api/stripe-webhook` (syncs `users.account_status` with the subscription: `Unsubscribed`, `Subscribed` (either plan), `Cancelled`, `Expired`; see `src/lib/accountStatus.ts`). Must receive `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `invoice.paid` and `customer.subscription.deleted`
 - `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` - Legacy Turso database; only read by `npm run db:migrate-from-turso`, which copies its data into `DATABASE_URL` once
 
 ## Project Structure

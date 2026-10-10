@@ -44,24 +44,31 @@ export async function POST(request: Request) {
 
   try {
     switch (event.type) {
-      // First payment: start a one-month Monthly Subscription, or a Lifetime Subscription
+      // First payment: start the subscription
       case 'checkout.session.completed':
-      // Delayed payment methods (e.g. bank debits) confirm Lifetime payments here
+      // Delayed payment methods (e.g. bank debits) confirm payments here
       case 'checkout.session.async_payment_succeeded': {
         // Other apps on this Stripe account send their checkouts here too
         if (event.data.object.metadata?.app !== 'talkninja') break;
         // Shared with the Thank You page, which usually gets there first
-        await fulfillCheckoutSession(stripe, event.data.object);
+        await fulfillCheckoutSession(event.data.object);
         break;
       }
-      // Monthly renewal paid: extend the subscription another month
+      // Renewal paid: extend the subscription to the end of the month or
+      // year just paid for
       case 'invoice.paid': {
         const invoice = event.data.object;
         const subscription = invoice.parent?.subscription_details?.subscription;
         // The first invoice is handled by checkout.session.completed
         if (invoice.billing_reason !== 'subscription_cycle' || !subscription) break;
+        const periodEnd = Math.max(...invoice.lines.data.map((line) => line.period.end));
+        if (!Number.isFinite(periodEnd)) {
+          console.error('Renewal invoice has no billing period:', invoice.id);
+          break;
+        }
         await renewSubscription(
-          typeof subscription === 'string' ? subscription : subscription.id
+          typeof subscription === 'string' ? subscription : subscription.id,
+          new Date(periodEnd * 1000).toISOString()
         );
         break;
       }

@@ -2,7 +2,7 @@ import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { DB_SCHEMA, isUniqueViolation, query, transaction } from './db';
 import { ROLES } from './roles';
-import { ACCOUNT_STATUS, canBuyPlan } from './accountStatus';
+import { ACCOUNT_STATUS, type Plan } from './accountStatus';
 import { isLanguage, type Language } from './languages';
 
 const scryptAsync = promisify(scrypt) as (password: string, salt: Buffer, keylen: number) => Promise<Buffer>;
@@ -29,18 +29,20 @@ const USER_COLUMNS =
   'id, user_name, email_address, account_status, signup_date, subscription_end_date, stripe_subscription_id, role, active_learning_language, native_language';
 
 // Dates are stored as ISO 8601 UTC strings, so they compare correctly as text.
-// One month from `from`, clamped so Jan 31 becomes Feb 28/29 rather than Mar 3.
-export function oneMonthFrom(from: Date = new Date()): string {
+// `months` months from `from`, clamped so Jan 31 becomes Feb 28/29 rather
+// than Mar 3 (and Feb 29 a year on becomes Feb 28).
+function monthsFrom(months: number, from: Date = new Date()): string {
   const end = new Date(from);
   end.setUTCDate(1);
-  end.setUTCMonth(end.getUTCMonth() + 1);
+  end.setUTCMonth(end.getUTCMonth() + months);
   const lastDay = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() + 1, 0)).getUTCDate();
   end.setUTCDate(Math.min(from.getUTCDate(), lastDay));
   return end.toISOString();
 }
 
-export function canBuy(user: User, plan: 'monthly' | 'lifetime'): boolean {
-  return canBuyPlan(user.accountStatus, plan);
+// When a just-paid period of the plan ends
+export function planPeriodEnd(plan: Plan, from: Date = new Date()): string {
+  return monthsFrom(plan === 'annual' ? 12 : 1, from);
 }
 
 export class EmailTakenError extends Error {
@@ -210,7 +212,13 @@ export function ensureUserSchema(): Promise<void> {
       await client.query(`UPDATE "Users" SET account_status = $1 WHERE account_status = 'Canceled'`, [
         ACCOUNT_STATUS.canceled,
       ]);
-      // Why each Monthly subscriber cancelled (the My Account page's Cancel
+      // Monthly and Lifetime subscribers are now both just Subscribed
+      await client.query(
+        `UPDATE "Users" SET account_status = $1
+         WHERE account_status IN ('Monthly Subscription', 'Lifetime Subscription')`,
+        [ACCOUNT_STATUS.subscribed]
+      );
+      // Why each subscriber cancelled (the My Account page's Cancel
       // Subscription modal), one row per cancellation. The name and email are
       // copied so the row still says who it was if the account is deleted.
       // stripe_subscription_id and stripe_canceled_at are Stripe's record of
@@ -338,11 +346,11 @@ export async function updatePassword(userId: number, password: string): Promise<
 
 export async function getUserById(id: number): Promise<User | null> {
   await ensureUserSchema();
-  // A monthly subscription whose end date has passed (e.g. a failed renewal) is expired
+  // A subscription whose end date has passed (e.g. a failed renewal) is expired
   await query(
     `UPDATE "Users" SET account_status = $3
      WHERE id = $1 AND account_status = $4 AND subscription_end_date < $2`,
-    [id, new Date().toISOString(), ACCOUNT_STATUS.expired, ACCOUNT_STATUS.monthly]
+    [id, new Date().toISOString(), ACCOUNT_STATUS.expired, ACCOUNT_STATUS.subscribed]
   );
   const [row] = await query(`SELECT ${USER_COLUMNS} FROM "Users" WHERE id = $1`, [id]);
   return row ? rowToUser(row) : null;
@@ -368,60 +376,37 @@ export async function setLanguagePreferences(
 export async function startSubscription(
   userId: number,
   stripeCustomerId: string,
-  stripeSubscriptionId: string
+  stripeSubscriptionId: string,
+  plan: Plan
 ): Promise<string | null> {
   await ensureUserSchema();
   const [row] = await query(
     // Only once per subscription: the Thank You page and the webhook both
-    // call this, and a second call mustn't restart the month
+    // call this, and a second call mustn't restart the period
     `UPDATE "Users" SET stripe_customer_id = $1, stripe_subscription_id = $2, account_status = $5,
        subscription_end_date = $3
      WHERE id = $4 AND stripe_subscription_id IS DISTINCT FROM $2
      RETURNING email_address`,
-    [stripeCustomerId, stripeSubscriptionId, oneMonthFrom(), userId, ACCOUNT_STATUS.monthly]
+    [stripeCustomerId, stripeSubscriptionId, planPeriodEnd(plan), userId, ACCOUNT_STATUS.subscribed]
   );
   return (row?.email_address as string | undefined) ?? null;
 }
 
-// A paid Lifetime purchase never expires. Clearing the subscription ID keeps
-// events from an earlier monthly subscription from changing the status.
-// Returns the user's email and that earlier monthly subscription's ID, if
-// any, so the caller can cancel it in Stripe; or null when the account was
-// already Lifetime (the Thank You page and the webhook both call this).
-export async function grantLifetimeAccess(
-  userId: number,
-  stripeCustomerId: string | null
-): Promise<{ emailAddress: string; previousSubscriptionId: string | null } | null> {
-  await ensureUserSchema();
-  const [row] = await query(
-    `UPDATE "Users" SET account_status = $3, subscription_end_date = NULL,
-       stripe_subscription_id = NULL, stripe_customer_id = COALESCE($1, "Users".stripe_customer_id)
-     FROM (SELECT id, stripe_subscription_id FROM "Users" WHERE id = $2) AS previous
-     WHERE "Users".id = previous.id AND "Users".account_status IS DISTINCT FROM $3
-     RETURNING "Users".email_address, previous.stripe_subscription_id AS previous_subscription_id`,
-    [stripeCustomerId, userId, ACCOUNT_STATUS.lifetime]
-  );
-  if (!row) return null;
-  return {
-    emailAddress: row.email_address as string,
-    previousSubscriptionId: (row.previous_subscription_id as string | null) ?? null,
-  };
-}
-
-// Called on each successful monthly renewal payment.
-export async function renewSubscription(stripeSubscriptionId: string): Promise<void> {
+// Called on each successful renewal payment, with when the period just paid
+// for ends.
+export async function renewSubscription(stripeSubscriptionId: string, periodEnd: string): Promise<void> {
   await ensureUserSchema();
   await query(
     `UPDATE "Users" SET account_status = $3, subscription_end_date = $1
      WHERE stripe_subscription_id = $2`,
-    [oneMonthFrom(), stripeSubscriptionId, ACCOUNT_STATUS.monthly]
+    [periodEnd, stripeSubscriptionId, ACCOUNT_STATUS.subscribed]
   );
 }
 
-// After Stripe has cancelled a Monthly subscription from the My Account
+// After Stripe has cancelled a subscription from the My Account
 // page: marks the account Cancelled and saves why, together, so neither is
 // saved without the other. The subscription end date is kept, since the
-// month already paid for still runs to it.
+// period already paid for still runs to it.
 export async function recordCancellation(input: {
   user: User;
   stripeSubscriptionId: string;

@@ -5,13 +5,13 @@
 const ADMIN_EMAIL = 'darinlutz@yahoo.com';
 const APP_NAME = 'TalkNinja';
 
-export type AdminEvent = 'signup' | 'monthly' | 'lifetime' | 'cancelled';
+export type AdminEvent = 'signup' | 'monthly' | 'annual' | 'cancelled';
 
 const EVENT_TEXT: Record<AdminEvent, { subject: string; body: string }> = {
   signup: { subject: 'New user sign up', body: `has just signed up for ${APP_NAME}` },
   monthly: { subject: 'Monthly subscription purchased', body: `has just purchased a monthly subscription for ${APP_NAME}` },
-  lifetime: { subject: 'Lifetime subscription purchased', body: `has just purchased a lifetime subscription for ${APP_NAME}` },
-  cancelled: { subject: 'Subscription cancelled', body: `has just cancelled their monthly subscription for ${APP_NAME}` },
+  annual: { subject: 'Annual subscription purchased', body: `has just purchased an annual subscription for ${APP_NAME}` },
+  cancelled: { subject: 'Subscription cancelled', body: `has just cancelled their subscription for ${APP_NAME}` },
 };
 
 export async function notifyAdmin(event: AdminEvent, userEmail: string): Promise<void> {

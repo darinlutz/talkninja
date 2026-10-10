@@ -7,8 +7,8 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 type NavigationProps = {
-  // hasLifetime hides Pricing, since there's nothing left to buy
-  user: { userName: string; hasLifetime: boolean } | null;
+  // isSubscribed hides Pricing, since there's nothing left to buy
+  user: { userName: string; isSubscribed: boolean } | null;
 };
 
 export default function Navigation({ user }: NavigationProps) {
@@ -69,7 +69,7 @@ export default function Navigation({ user }: NavigationProps) {
             >
               Languages
             </button>
-            {!user?.hasLifetime && (
+            {!user?.isSubscribed && (
               <Link
                 href="/pricing"
                 className="px-3 py-2 text-dark-blue hover:text-powder-600 transition-colors font-medium"
@@ -163,7 +163,7 @@ export default function Navigation({ user }: NavigationProps) {
             >
               Languages
             </button>
-            {!user?.hasLifetime && (
+            {!user?.isSubscribed && (
               <Link
                 href="/pricing"
                 className="block px-3 py-2 rounded-md text-base font-medium text-dark-blue hover:text-powder-600 hover:bg-slate-100 transition-colors"

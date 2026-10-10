@@ -1,4 +1,4 @@
-// The reasons a Monthly subscriber can pick when cancelling (the My Account
+// The reasons a subscriber can pick when cancelling (the My Account
 // page's Cancel Subscription modal). The label is what's shown and what's
 // saved in "CancellationReason". Dependency-free so the modal and the
 // cancel route can share it.

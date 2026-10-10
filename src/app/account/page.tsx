@@ -1,8 +1,7 @@
 import { redirect } from 'next/navigation';
 import CancelSubscriptionButton from '@/components/CancelSubscriptionButton';
 import { getCurrentUser } from '@/lib/session';
-import { canBuy } from '@/lib/users';
-import { ACCOUNT_STATUS } from '@/lib/accountStatus';
+import { ACCOUNT_STATUS, canSubscribe } from '@/lib/accountStatus';
 import { getLanguageProgress } from '@/lib/languageProgress';
 import Link from 'next/link';
 import { beltName, continueTrainingHref, describeNextStep } from '@/lib/languageLevels';
@@ -18,8 +17,7 @@ import { getCustomAgentInstructions, MAX_CUSTOM_INSTRUCTIONS_LENGTH } from '@/li
 // blue (the site color) otherwise
 function statusBadgeClass(accountStatus: string): string {
   switch (accountStatus) {
-    case ACCOUNT_STATUS.monthly:
-    case ACCOUNT_STATUS.lifetime:
+    case ACCOUNT_STATUS.subscribed:
       return 'bg-green-100 text-green-700';
     case ACCOUNT_STATUS.canceled:
     case ACCOUNT_STATUS.expired:
@@ -41,9 +39,7 @@ export default async function AccountPage() {
     getLanguageProgress(user.id),
     getCustomAgentInstructions(user.id),
   ]);
-  const isMonthly = user.accountStatus === ACCOUNT_STATUS.monthly;
-  const canBuyMonthly = canBuy(user, 'monthly');
-  const canBuyLifetime = canBuy(user, 'lifetime');
+  const isSubscribed = user.accountStatus === ACCOUNT_STATUS.subscribed;
 
   return (
     <section className="py-12 px-4 bg-gradient-to-b from-slate-100 to-white flex justify-center">
@@ -77,9 +73,9 @@ export default async function AccountPage() {
                 {formatDate(user.signupDate)}
               </dd>
             </div>
-            {/* When the month paid for ends: the next renewal while Monthly,
-                and when the subscription ends once it's cancelled */}
-            {(isMonthly || (user.accountStatus === ACCOUNT_STATUS.canceled && user.subscriptionEndDate)) && (
+            {/* When the period paid for ends: the next renewal while
+                subscribed, and when the subscription ends once it's cancelled */}
+            {(isSubscribed || (user.accountStatus === ACCOUNT_STATUS.canceled && user.subscriptionEndDate)) && (
               <div className="flex justify-between gap-4 px-4 py-3">
                 <dt className="text-sm font-medium text-slate-500">Subscription End Date</dt>
                 <dd className="text-dark-blue font-medium text-right">
@@ -89,32 +85,28 @@ export default async function AccountPage() {
             )}
           </dl>
 
-          {(canBuyMonthly || canBuyLifetime) && (
+          {canSubscribe(user.accountStatus) && (
             <form action="/api/create-checkout-session" method="POST" className="mt-6 space-y-3">
-              {canBuyMonthly && (
-                <button
-                  type="submit"
-                  name="plan"
-                  value="monthly"
-                  className="w-full px-6 py-3 rounded-lg font-semibold text-white bg-gradient-to-r from-powder-500 to-powder-600 hover:from-powder-600 hover:to-powder-500 transition-colors"
-                >
-                  Monthly Subscription
-                </button>
-              )}
-              {canBuyLifetime && (
-                <button
-                  type="submit"
-                  name="plan"
-                  value="lifetime"
-                  className="w-full px-6 py-3 rounded-lg font-semibold text-white bg-gradient-to-r from-powder-500 to-powder-600 hover:from-powder-600 hover:to-powder-500 transition-colors"
-                >
-                  {isMonthly ? 'Upgrade to Lifetime Subscription' : 'Lifetime Subscription'}
-                </button>
-              )}
+              <button
+                type="submit"
+                name="plan"
+                value="monthly"
+                className="w-full px-6 py-3 rounded-lg font-semibold text-white bg-gradient-to-r from-powder-500 to-powder-600 hover:from-powder-600 hover:to-powder-500 transition-colors"
+              >
+                Monthly Subscription
+              </button>
+              <button
+                type="submit"
+                name="plan"
+                value="annual"
+                className="w-full px-6 py-3 rounded-lg font-semibold text-white bg-gradient-to-r from-powder-500 to-powder-600 hover:from-powder-600 hover:to-powder-500 transition-colors"
+              >
+                Annual Subscription
+              </button>
             </form>
           )}
 
-          {isMonthly && <CancelSubscriptionButton />}
+          {isSubscribed && <CancelSubscriptionButton />}
         </div>
 
         <div className="bg-slate-50 rounded-xl border border-slate-200 p-6 sm:p-8">

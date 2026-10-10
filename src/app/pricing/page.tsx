@@ -5,7 +5,7 @@ import { getCurrentUser } from '@/lib/session';
 
 // Keeps the site-wide tab title from the root layout
 export const metadata: Metadata = {
-  description: 'TalkNinja monthly and lifetime subscriptions.',
+  description: 'TalkNinja monthly and annual subscriptions.',
 };
 
 export default async function PricingPage() {

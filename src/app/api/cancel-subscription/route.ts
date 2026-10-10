@@ -6,7 +6,7 @@ import { ACCOUNT_STATUS } from '@/lib/accountStatus';
 import { notifyAdmin } from '@/lib/adminNotification';
 import { cancellationReasonLabel, MAX_CANCELLATION_NOTES_LENGTH } from '@/lib/cancellationReasons';
 
-// The My Account page's Cancel Subscription modal: cancels the Monthly
+// The My Account page's Cancel Subscription modal: cancels the
 // subscription in Stripe, marks the account Cancelled, and saves the
 // reason the user picked (and any notes) in "CancellationReason". Returns
 // Stripe's record of the cancellation as the user's proof.
@@ -17,10 +17,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Please log in again' }, { status: 401 });
     }
 
-    // Only Monthly subscribers have something to cancel (Lifetime never
-    // renews, and its button isn't shown)
-    if (user.accountStatus !== ACCOUNT_STATUS.monthly || !user.stripeSubscriptionId) {
-      return NextResponse.json({ error: 'No active monthly subscription to cancel' }, { status: 400 });
+    // Only subscribers have something to cancel
+    if (user.accountStatus !== ACCOUNT_STATUS.subscribed || !user.stripeSubscriptionId) {
+      return NextResponse.json({ error: 'No active subscription to cancel' }, { status: 400 });
     }
 
     const body = await request.json().catch(() => ({}));
@@ -42,7 +41,7 @@ export async function POST(request: Request) {
     }
 
     // Cancels immediately: no further charges, no refund. The subscription
-    // end date (the end of the month already paid for) is kept.
+    // end date (the end of the period already paid for) is kept.
     const stripe = new Stripe(stripeSecretKey);
     const subscription = await stripe.subscriptions.cancel(user.stripeSubscriptionId);
     const canceledAt = subscription.canceled_at ? new Date(subscription.canceled_at * 1000) : new Date();

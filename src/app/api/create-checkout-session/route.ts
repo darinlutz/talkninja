@@ -2,19 +2,8 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getCurrentUser } from '@/lib/session';
 import { getSiteOrigin } from '@/lib/siteOrigin';
-import { canBuy } from '@/lib/users';
-
-// Each plan is a Stripe Product; Checkout charges its default Price
-const PLAN_PRODUCT_ENV = {
-  monthly: 'STRIPE_MONTHLY_PRODUCT_ID',
-  lifetime: 'STRIPE_LIFETIME_PRODUCT_ID',
-} as const;
-
-type Plan = keyof typeof PLAN_PRODUCT_ENV;
-
-function isPlan(value: unknown): value is Plan {
-  return value === 'monthly' || value === 'lifetime';
-}
+import { canSubscribe, isPlan } from '@/lib/accountStatus';
+import { PLAN_PRODUCT_ENV } from '@/lib/planPrices';
 
 export async function POST(request: Request) {
   try {
@@ -41,9 +30,8 @@ export async function POST(request: Request) {
     if (!user) {
       return NextResponse.redirect(`${origin}/login`, 303);
     }
-    // Prevents buying a plan the account already has (or one it's past,
-    // e.g. Monthly on a Lifetime account)
-    if (!canBuy(user, plan)) {
+    // Prevents subscribing twice
+    if (!canSubscribe(user.accountStatus)) {
       return NextResponse.redirect(`${origin}/account`, 303);
     }
 
@@ -53,21 +41,19 @@ export async function POST(request: Request) {
       expand: ['default_price'],
     });
     const price = product.default_price;
-    if (!price || typeof price === 'string') {
-      console.error(`Stripe product ${productId} has no default price`);
+    // Both plans renew: monthly, or yearly
+    if (!price || typeof price === 'string' || price.type !== 'recurring') {
+      console.error(`Stripe product ${productId} has no recurring default price`);
       return NextResponse.json(
-        { error: 'Stripe product has no price' },
+        { error: 'Stripe product has no recurring price' },
         { status: 500 }
       );
     }
 
-    // Monthly is a recurring price; Lifetime is a one-time payment
-    const mode: Stripe.Checkout.SessionCreateParams.Mode =
-      price.type === 'recurring' ? 'subscription' : 'payment';
-
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
       ui_mode: 'hosted_page',
-      mode,
+      mode: 'subscription',
+      payment_method_collection: 'always',
       billing_address_collection: 'auto',
       phone_number_collection: { enabled: false },
       automatic_tax: { enabled: false },
@@ -85,12 +71,6 @@ export async function POST(request: Request) {
       // to decide how to update the account
       metadata: { app: 'talkninja', plan },
     };
-    if (sessionParams.mode === 'subscription') {
-      sessionParams.payment_method_collection = 'always';
-    } else {
-      // Payment mode only creates a Stripe Customer when asked to
-      sessionParams.customer_creation = 'always';
-    }
 
     const session = await stripe.checkout.sessions.create(sessionParams);
 

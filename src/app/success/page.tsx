@@ -12,7 +12,7 @@ async function getCheckoutSession(sessionId: string | undefined) {
     const session = await stripe.checkout.sessions.retrieve(sessionId);
     if (session.status === 'complete') {
       try {
-        await fulfillCheckoutSession(stripe, session);
+        await fulfillCheckoutSession(session);
       } catch (error) {
         // The webhook will still apply it
         console.error(`Updating the account for checkout ${session.id} failed:`, error);
@@ -45,9 +45,7 @@ export default async function SuccessPage({
         <p className="text-slate-600 mb-8">
           {isComplete
             ? `${
-                session.mode === 'payment'
-                  ? 'Your lifetime subscription is active.'
-                  : 'Your subscription is active.'
+                'Your subscription is active.'
               }${
                 session.customer_details?.email
                   ? ` A receipt has been sent to ${session.customer_details.email}.`
@@ -57,7 +55,7 @@ export default async function SuccessPage({
         </p>
 
         {/* A full page load, so the nav bar also reflects the new plan
-            (e.g. Pricing disappears for Lifetime) */}
+            (e.g. Pricing disappears once subscribed) */}
         <a
           href="/account"
           className="inline-block px-6 py-3 rounded-lg font-semibold text-white bg-gradient-to-r from-powder-500 to-powder-600 hover:from-powder-600 hover:to-powder-500 transition-colors"

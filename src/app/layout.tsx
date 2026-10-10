@@ -52,7 +52,7 @@ export default async function RootLayout({
         <Navigation
           user={
             user
-              ? { userName: user.userName, hasLifetime: user.accountStatus === ACCOUNT_STATUS.lifetime }
+              ? { userName: user.userName, isSubscribed: user.accountStatus === ACCOUNT_STATUS.subscribed }
               : null
           }
         />

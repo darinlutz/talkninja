@@ -19,10 +19,10 @@ function formatDate(iso: string | null, withTime = false): string {
   return new Date(iso).toLocaleString('en-US', withTime ? { dateStyle: 'long', timeStyle: 'short' } : { dateStyle: 'long' });
 }
 
-// The My Account page's Cancel Subscription button (Monthly subscribers
-// only). Opens a modal asking why they're cancelling; "Cancel Subscription"
-// there cancels in Stripe and shows Stripe's confirmation, "Remain Monthly
-// Subscriber" just closes it.
+// The My Account page's Cancel Subscription button (subscribers only).
+// Opens a modal asking why they're cancelling; "Cancel Subscription" there
+// cancels in Stripe and shows Stripe's confirmation, "Remain Subscribed"
+// just closes it.
 export default function CancelSubscriptionButton() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -128,7 +128,7 @@ export default function CancelSubscriptionButton() {
             ) : (
               <>
                 <h2 id="cancelSubscriptionTitle" className="text-xl font-bold text-dark-blue">
-                  Cancel your monthly subscription?
+                  Cancel your subscription?
                 </h2>
                 <p className="mt-2 text-slate-600">We’re sorry to see you go. Why are you cancelling?</p>
 
@@ -181,7 +181,7 @@ export default function CancelSubscriptionButton() {
                     disabled={status === 'cancelling'}
                     className="flex-1 px-4 py-2 rounded-lg font-semibold text-white bg-gradient-to-r from-powder-500 to-powder-600 hover:from-powder-600 hover:to-powder-500 transition-colors disabled:opacity-60"
                   >
-                    Remain Monthly Subscriber
+                    Remain Subscribed
                   </button>
                   <button
                     type="button"
