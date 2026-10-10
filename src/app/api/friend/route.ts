@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { aiErrorResponse } from '@/lib/aiErrors';
 import { chatWithFriend, ChatMessage, DEFAULT_FRIEND_DIFFICULTY } from '@/lib/friend';
 import { Difficulty } from '@/lib/language';
 import { Language } from '@/lib/translate';
@@ -50,9 +51,6 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Friend chat error:', error);
 
-    return NextResponse.json(
-      { error: 'Failed to get a reply' },
-      { status: 500 }
-    );
+    return aiErrorResponse(error, 'Failed to get a reply');
   }
 }

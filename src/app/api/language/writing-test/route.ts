@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { aiErrorResponse } from '@/lib/aiErrors';
 import type { Language } from '@/lib/translate';
 import { LANGUAGES } from '@/lib/languages';
 import { getCustomAgentInstructions } from '@/lib/customAgentInstructions';
@@ -51,6 +52,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, ...result }, { status: 200 });
   } catch (error) {
     console.error('Writing test error:', error);
-    return NextResponse.json({ error: 'Failed to generate a sentence' }, { status: 500 });
+    return aiErrorResponse(error, 'Failed to generate a sentence');
   }
 }

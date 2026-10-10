@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { aiErrorResponse } from '@/lib/aiErrors';
 import { getCurrentUser } from '@/lib/session';
 import { isLanguage } from '@/lib/languages';
 import {
@@ -44,6 +45,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ translations });
   } catch (error) {
     console.error('UI translate error:', error);
-    return NextResponse.json({ error: 'Failed to translate the page' }, { status: 500 });
+    return aiErrorResponse(error, 'Failed to translate the page');
   }
 }

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { aiErrorResponse } from '@/lib/aiErrors';
 import { translateText, type Language } from '@/lib/translate';
 import { LANGUAGES } from '@/lib/languages';
 import { checkPracticeAccess } from '@/lib/practiceAccess';
@@ -38,9 +39,6 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Translate error:', error);
 
-    return NextResponse.json(
-      { error: 'Failed to translate text' },
-      { status: 500 }
-    );
+    return aiErrorResponse(error, 'Failed to translate text');
   }
 }

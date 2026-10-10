@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { aiErrorResponse } from '@/lib/aiErrors';
 import { checkGrammar } from '@/lib/grammarCheck';
 import { LANGUAGES, type Language } from '@/lib/languages';
 import { checkPracticeAccess } from '@/lib/practiceAccess';
@@ -34,9 +35,6 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Grammar check error:', error);
 
-    return NextResponse.json(
-      { error: 'Failed to check grammar' },
-      { status: 500 }
-    );
+    return aiErrorResponse(error, 'Failed to check grammar');
   }
 }

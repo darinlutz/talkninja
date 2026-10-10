@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { aiErrorResponse } from '@/lib/aiErrors';
 import { getRandomSentence, type Difficulty } from '@/lib/language';
 import { isValidTestDifficulty, MIN_READING_TEST_DIFFICULTY } from '@/lib/readingTest';
 import { checkPracticeAccess } from '@/lib/practiceAccess';
@@ -33,9 +34,6 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Language practice error:', error);
 
-    return NextResponse.json(
-      { error: 'Failed to generate a new sentence' },
-      { status: 500 }
-    );
+    return aiErrorResponse(error, 'Failed to generate a new sentence');
   }
 }

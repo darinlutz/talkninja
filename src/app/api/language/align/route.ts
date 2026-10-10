@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { aiErrorResponse } from '@/lib/aiErrors';
 import type { Language } from '@/lib/translate';
 import { alignTranslation } from '@/lib/wordAlignment';
 import { LANGUAGES } from '@/lib/languages';
@@ -38,6 +39,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, ...segments }, { status: 200 });
   } catch (error) {
     console.error('Align error:', error);
-    return NextResponse.json({ error: 'Failed to align translation' }, { status: 500 });
+    return aiErrorResponse(error, 'Failed to align translation');
   }
 }

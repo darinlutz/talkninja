@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { aiErrorResponse } from '@/lib/aiErrors';
 import { checkPracticeAccess } from '@/lib/practiceAccess';
 
 export async function POST(request: Request) {
@@ -44,10 +45,7 @@ export async function POST(request: Request) {
     if (!res.ok) {
       const errorText = await res.text();
       console.error('OpenAI TTS error:', errorText);
-      return NextResponse.json(
-        { error: 'Failed to generate speech' },
-        { status: 500 }
-      );
+      return aiErrorResponse(errorText, 'Failed to generate speech');
     }
 
     const audioBuffer = await res.arrayBuffer();
@@ -61,9 +59,6 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Speak error:', error);
 
-    return NextResponse.json(
-      { error: 'Failed to generate speech' },
-      { status: 500 }
-    );
+    return aiErrorResponse(error, 'Failed to generate speech');
   }
 }
