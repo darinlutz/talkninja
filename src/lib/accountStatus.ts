@@ -24,10 +24,15 @@ export function isPlan(value: unknown): value is Plan {
   return value === 'monthly' || value === 'annual';
 }
 
-// Whether an account can use My Dojo and the Language page: subscribers and
-// Admins. Everyone else is sent to Pricing.
-export function hasPracticeAccess(accountStatus: string, role: string): boolean {
-  return accountStatus === ACCOUNT_STATUS.subscribed || isAdmin(role);
+// Whether an account can use My Dojo and the Language page: Admins, and
+// anyone whose subscription end date is still ahead, whatever the status
+// says (so a Cancelled subscriber keeps the time they paid for). Everyone
+// else is sent to Pricing.
+export function hasPracticeAccess(subscriptionEndDate: string | null, role: string): boolean {
+  if (isAdmin(role)) return true;
+  if (!subscriptionEndDate) return false;
+  const endsAt = Date.parse(subscriptionEndDate);
+  return !Number.isNaN(endsAt) && endsAt > Date.now();
 }
 
 // Either plan can be bought by anyone without a current subscription.
