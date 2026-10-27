@@ -41,7 +41,7 @@ export default async function DojoPage() {
   const user = await getCurrentUser();
   // My Dojo is for paid subscribers (and Admins); everyone else, signed in
   // or not, is sent to Pricing
-  if (!user || !hasPracticeAccess(user.accountStatus, user.role)) redirect('/pricing');
+  if (!user || !hasPracticeAccess(user.subscriptionEndDate, user.role)) redirect('/pricing');
 
   // The Account page's Language Setup, or the defaults the Language page uses
   const userLanguage = user.nativeLanguage ?? DEFAULT_USER_LANGUAGE;

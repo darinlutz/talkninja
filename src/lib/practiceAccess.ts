@@ -23,7 +23,7 @@ export async function checkPracticeAccess(): Promise<
   if (!user) {
     return { user: null, denied: NextResponse.json({ error: 'Please log in to practice' }, { status: 401 }) };
   }
-  if (!hasPracticeAccess(user.accountStatus, user.role)) {
+  if (!hasPracticeAccess(user.subscriptionEndDate, user.role)) {
     return {
       user: null,
       denied: NextResponse.json({ error: 'Practice is for subscribers. See Pricing to subscribe.' }, { status: 403 }),

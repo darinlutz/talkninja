@@ -7,7 +7,7 @@ import { hasPracticeAccess } from '@/lib/accountStatus';
 // (and Admins), and everyone else, signed in or not, is sent to Pricing.
 export default async function LanguageLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
-  if (!user || !hasPracticeAccess(user.accountStatus, user.role)) redirect('/pricing');
+  if (!user || !hasPracticeAccess(user.subscriptionEndDate, user.role)) redirect('/pricing');
 
   return children;
 }
