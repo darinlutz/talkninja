@@ -1,5 +1,5 @@
 import { ChatPromptTemplate } from '@langchain/core/prompts';
-import { ChatOpenAI } from '@langchain/openai';
+import { structuredModel } from './aiModels';
 import { z } from 'zod';
 import { Language } from './translate';
 
@@ -44,9 +44,7 @@ export async function checkGrammar(text: string, language: Language): Promise<Gr
     throw new Error('OPENAI_API_KEY is not configured');
   }
 
-  const model = new ChatOpenAI({ model: 'gpt-4o', temperature: 0 });
-  const structuredModel = model.withStructuredOutput(GrammarCheckSchema);
-  const chain = PROMPT_TEMPLATE.pipe(structuredModel);
+  const chain = PROMPT_TEMPLATE.pipe(await structuredModel('grammarCheck', GrammarCheckSchema, 0));
 
   const response = await chain.invoke({ text, language });
 

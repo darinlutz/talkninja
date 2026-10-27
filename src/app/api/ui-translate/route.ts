@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
 import { aiErrorResponse } from '@/lib/aiErrors';
 import { getCurrentUser } from '@/lib/session';
 import { isLanguage } from '@/lib/languages';
@@ -11,6 +12,8 @@ import {
 // Translates the page's interface text into the signed-in user's "I speak"
 // language (see PageTranslator)
 export async function POST(request: Request) {
+  // Set just before the AI call; refunded if it fails, so failures don't count
+  let limit: AiRateLimit | null = null;
   try {
     // Only signed-in users have an "I speak" language, and this keeps the
     // OpenAI calls behind an account
@@ -41,9 +44,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'OpenAI API key not configured' }, { status: 500 });
     }
 
-    const translations = await translateUiStrings(texts as string[], body.language);
+    limit = await aiRateLimit(request, 'uiTranslate', user);
+    if (limit.response) return limit.response;
+
+    const translations = await limit.track(() => translateUiStrings(texts as string[], body.language));
     return NextResponse.json({ translations });
   } catch (error) {
+    await limit?.refund();
     console.error('UI translate error:', error);
     return aiErrorResponse(error, 'Failed to translate the page');
   }

@@ -9,6 +9,7 @@ import { MAX_BELT_LEVEL, type LanguageActivity, type LanguageProgress, type Reco
 import { isAdmin } from '@/lib/roles';
 import { isLanguage } from '@/lib/languages';
 import { LANGUAGES } from '@/lib/languages';
+import { reportRateLimit } from '@/lib/rateLimitClient';
 
 export const TEST_LANGUAGES: readonly Language[] = LANGUAGES;
 
@@ -65,6 +66,8 @@ export async function translateText(text: string, from: Language, to: Language):
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ text, from, to }),
   });
+  // A 429 for the AI limit opens the rate limit dialog
+  void reportRateLimit(response);
 
   const data = await response.json();
 
@@ -130,6 +133,8 @@ export async function fetchTestItem(
       avoid: history.recentSentences,
     }),
   });
+  // A 429 for the AI limit opens the rate limit dialog
+  void reportRateLimit(response);
   const data = await response.json();
   if (!response.ok) {
     throw new Error(data.error || 'Failed to generate a sentence');
@@ -159,6 +164,8 @@ export async function alignTexts(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sentence, from, translation, to }),
     });
+    // A 429 for the AI limit opens the rate limit dialog
+    void reportRateLimit(response);
     if (!response.ok) return null;
     const data = await response.json();
     return { sentenceSegments: data.sentenceSegments, translationSegments: data.translationSegments };
@@ -223,6 +230,8 @@ export async function speakText(text: string, voice: string): Promise<void> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ text, voice }),
   });
+  // A 429 for the AI limit opens the rate limit dialog
+  void reportRateLimit(response);
 
   if (!response.ok) {
     const data = await response.json();

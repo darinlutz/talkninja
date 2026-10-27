@@ -1,7 +1,7 @@
 import { Annotation, StateGraph, START, END } from '@langchain/langgraph';
 import { ChatPromptTemplate, MessagesPlaceholder } from '@langchain/core/prompts';
 import { AIMessage, BaseMessage, HumanMessage } from '@langchain/core/messages';
-import { ChatOpenAI } from '@langchain/openai';
+import { chatModel } from './aiModels';
 import { Difficulty, fetchVocabulary, VocabEntry } from './language';
 import { Language } from './translate';
 import { difficultyGuide, MAX_READING_TEST_DIFFICULTY } from './readingTest';
@@ -70,8 +70,7 @@ async function chatNode(state: FriendStateType): Promise<Partial<FriendStateType
     message.role === 'user' ? new HumanMessage(message.content) : new AIMessage(message.content)
   );
 
-  const model = new ChatOpenAI({ model: 'gpt-4o', temperature: 0.7 });
-  const chain = promptTemplate.pipe(model);
+  const chain = promptTemplate.pipe(await chatModel('friendChat', 0.7));
 
   const response = await chain.invoke({
     vocabulary: vocabularyText,
@@ -79,8 +78,8 @@ async function chatNode(state: FriendStateType): Promise<Partial<FriendStateType
     history,
     language: state.language,
   });
-  const reply =
-    typeof response.content === 'string' ? response.content : JSON.stringify(response.content);
+  // .text, since reasoning models' content is a list of parts
+  const reply = response.text;
 
   return { reply };
 }

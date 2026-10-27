@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
 import { aiErrorResponse } from '@/lib/aiErrors';
 import { checkGrammar } from '@/lib/grammarCheck';
 import { LANGUAGES, type Language } from '@/lib/languages';
@@ -11,6 +12,8 @@ export async function POST(request: Request) {
   const access = await checkPracticeAccess();
   if (access.denied) return access.denied;
 
+  // Set just before the AI call; refunded if it fails, so failures don't count
+  let limit: AiRateLimit | null = null;
   try {
     const body = await request.json().catch(() => ({}));
     const text = body.text;
@@ -29,10 +32,14 @@ export async function POST(request: Request) {
       );
     }
 
-    const tokens = await checkGrammar(text, language);
+    limit = await aiRateLimit(request, 'grammarCheck', access.user);
+    if (limit.response) return limit.response;
+
+    const tokens = await limit.track(() => checkGrammar(text, language));
 
     return NextResponse.json({ success: true, tokens }, { status: 200 });
   } catch (error) {
+    await limit?.refund();
     console.error('Grammar check error:', error);
 
     return aiErrorResponse(error, 'Failed to check grammar');

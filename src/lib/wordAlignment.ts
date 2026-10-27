@@ -1,5 +1,5 @@
 import { ChatPromptTemplate } from '@langchain/core/prompts';
-import { ChatOpenAI } from '@langchain/openai';
+import { structuredModel } from './aiModels';
 import { z } from 'zod';
 import type { Language } from '@/lib/translate';
 
@@ -47,9 +47,9 @@ export async function alignTranslation(
     throw new Error('OPENAI_API_KEY is not configured');
   }
 
-  const model = new ChatOpenAI({ model: 'gpt-4o', temperature: 0 });
-  const structuredModel = model.withStructuredOutput(z.object({ alignment: AlignmentPairsSchema }));
-  const chain = ALIGN_PROMPT.pipe(structuredModel);
+  const chain = ALIGN_PROMPT.pipe(
+    await structuredModel('wordAlignment', z.object({ alignment: AlignmentPairsSchema }), 0)
+  );
 
   const response = await chain.invoke({ sentence, sourceLanguage, translation, targetLanguage });
   return segmentsFromPairs(sentence, translation, response.alignment);

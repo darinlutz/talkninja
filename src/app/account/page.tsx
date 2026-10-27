@@ -1,5 +1,10 @@
 import { redirect } from 'next/navigation';
 import CancelSubscriptionButton from '@/components/CancelSubscriptionButton';
+import ChangePasswordButton from '@/components/ChangePasswordButton';
+import DeleteAccountButton from '@/components/DeleteAccountButton';
+import MyAiUsageCard from '@/components/MyAiUsageCard';
+import { readOwnAiUsage } from '@/lib/rateLimits';
+import { isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { ACCOUNT_STATUS, canSubscribe } from '@/lib/accountStatus';
 import { getLanguageProgress } from '@/lib/languageProgress';
@@ -35,9 +40,10 @@ function formatDate(iso: string | null): string {
 export default async function AccountPage() {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
-  const [belts, customInstructions] = await Promise.all([
+  const [belts, customInstructions, aiUsage] = await Promise.all([
     getLanguageProgress(user.id),
     getCustomAgentInstructions(user.id),
+    readOwnAiUsage(user.id),
   ]);
   const isSubscribed = user.accountStatus === ACCOUNT_STATUS.subscribed;
 
@@ -107,6 +113,10 @@ export default async function AccountPage() {
           )}
 
           {isSubscribed && <CancelSubscriptionButton />}
+          {/* Every account has a password (there's no Google sign-in) */}
+          <ChangePasswordButton />
+          {/* Admins can't delete their account, so there's always an Admin */}
+          {!isAdmin(user.role) && <DeleteAccountButton isSubscribed={isSubscribed} />}
         </div>
 
         <div className="bg-slate-50 rounded-xl border border-slate-200 p-6 sm:p-8">
@@ -169,6 +179,8 @@ export default async function AccountPage() {
             maxLength={MAX_CUSTOM_INSTRUCTIONS_LENGTH}
           />
         </div>
+
+        <MyAiUsageCard day={aiUsage.day} week={aiUsage.week} />
       </div>
     </section>
   );

@@ -1,5 +1,5 @@
 import { ChatPromptTemplate } from '@langchain/core/prompts';
-import { ChatOpenAI } from '@langchain/openai';
+import { structuredModel } from '@/lib/aiModels';
 import { z } from 'zod';
 import type { Language } from '@/lib/translate';
 import { generateReadingTest, generateTestSentence, type ReadingTest } from '@/lib/readingTest';
@@ -66,10 +66,12 @@ function translateLevelWords(
   const cached = translationCache.get(key);
   if (cached) return cached;
 
-  const model = new ChatOpenAI({ model: 'gpt-4o', temperature: 0 });
-  const chain = TRANSLATION_PROMPT.pipe(model.withStructuredOutput(TranslationsSchema));
-  const translations = chain
-    .invoke({ learnLanguage, userLanguage, instructions, words: words.join('\n') })
+  // Cached for every user, so the model is whichever the first caller's
+  // category uses
+  const translations = structuredModel('levelWordTranslation', TranslationsSchema, 0)
+    .then((model) =>
+      TRANSLATION_PROMPT.pipe(model).invoke({ learnLanguage, userLanguage, instructions, words: words.join('\n') })
+    )
     .then((response) => {
       const usable = response.words
         .map((w) => ({ english: w.english.trim(), learn: w.learn.trim(), native: w.native.trim() }))
@@ -125,10 +127,8 @@ function rateRelevance(level: number, words: string[], focus: string): Promise<M
   const cached = relevanceCache.get(key);
   if (cached) return cached;
 
-  const model = new ChatOpenAI({ model: 'gpt-4o', temperature: 0 });
-  const chain = RELEVANCE_PROMPT.pipe(model.withStructuredOutput(RelevanceSchema));
-  const ratings = chain
-    .invoke({ focus, words: words.join('\n') })
+  const ratings = structuredModel('wordRelevance', RelevanceSchema, 0)
+    .then((model) => RELEVANCE_PROMPT.pipe(model).invoke({ focus, words: words.join('\n') }))
     .then((response) => new Map(response.words.map((w) => [w.english.trim().toLowerCase(), w.relevance])));
 
   if (relevanceCache.size >= MAX_RELEVANCE_CACHE) relevanceCache.clear();

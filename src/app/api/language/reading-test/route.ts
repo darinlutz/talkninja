@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
 import { aiErrorResponse } from '@/lib/aiErrors';
 import type { Language } from '@/lib/translate';
 import { LANGUAGES } from '@/lib/languages';
@@ -17,6 +18,8 @@ export async function POST(request: Request) {
   const access = await checkPracticeAccess();
   if (access.denied) return access.denied;
 
+  // Set just before the AI call; refunded if it fails, so failures don't count
+  let limit: AiRateLimit | null = null;
   try {
     const body = await request.json().catch(() => ({}));
     const learnLanguage: Language = VALID_LANGUAGES.includes(body.learnLanguage)
@@ -50,10 +53,16 @@ export async function POST(request: Request) {
     // Signed-in users' Account page instructions weight what's picked
     const customInstructions = await getCustomAgentInstructions(access.user.id);
 
-    const test = await pickReadingItem(learnLanguage, userLanguage, difficulty, avoid, customInstructions);
+    limit = await aiRateLimit(request, 'readingTest', access.user);
+    if (limit.response) return limit.response;
+
+    const test = await limit.track(() =>
+      pickReadingItem(learnLanguage, userLanguage, difficulty, avoid, customInstructions)
+    );
 
     return NextResponse.json({ success: true, ...test }, { status: 200 });
   } catch (error) {
+    await limit?.refund();
     console.error('Reading test error:', error);
     return aiErrorResponse(error, 'Failed to generate a reading test');
   }

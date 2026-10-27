@@ -77,6 +77,17 @@ export async function getCurrentUser(): Promise<User | null> {
   }
 }
 
+// Whether this browser's session was made with "Remember me": only those
+// last longer than SESSION_TTL_MS. Read before replacing the session (e.g.
+// after a password change) so the new one lasts the same way.
+export async function isRememberedSession(): Promise<boolean> {
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  if (!token) return false;
+  await ensureUserSchema();
+  const [row] = await query('SELECT expires_at FROM "Sessions" WHERE token_hash = $1', [hashToken(token)]);
+  return !!row && Number(row.expires_at) - Date.now() > SESSION_TTL_MS;
+}
+
 export async function deleteSession(): Promise<void> {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;

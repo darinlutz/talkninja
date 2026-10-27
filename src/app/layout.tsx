@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter, Space_Grotesk } from "next/font/google";
 import Navigation from "@/components/Navigation";
 import PageTranslator from "@/components/PageTranslator";
+import RateLimitDialog from "@/components/RateLimitDialog";
 import { getCurrentUser } from "@/lib/session";
 import { ACCOUNT_STATUS } from "@/lib/accountStatus";
+import { isAdmin } from "@/lib/roles";
 import "./globals.css";
 // After globals.css: its rules join the base layer that globals.css declares
 import "./landing.css";
@@ -52,7 +54,11 @@ export default async function RootLayout({
         <Navigation
           user={
             user
-              ? { userName: user.userName, isSubscribed: user.accountStatus === ACCOUNT_STATUS.subscribed }
+              ? {
+                  userName: user.userName,
+                  isSubscribed: user.accountStatus === ACCOUNT_STATUS.subscribed,
+                  isAdmin: isAdmin(user.role),
+                }
               : null
           }
         />
@@ -61,6 +67,8 @@ export default async function RootLayout({
         </main>
         {/* Shows the site in the user's "I speak" language */}
         <PageTranslator language={user?.nativeLanguage ?? null} />
+        {/* Opened by any AI feature refused for the user's AI limit */}
+        <RateLimitDialog />
       </body>
     </html>
   );

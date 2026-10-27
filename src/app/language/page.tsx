@@ -19,6 +19,7 @@ import {
   saveLanguagePreferences,
   type ProgressMap,
 } from '@/lib/languageTestClient';
+import { reportRateLimit } from '@/lib/rateLimitClient';
 
 const WORD_CATEGORIES: { value: WordCategory; label: string }[] = [
   { value: 'activities', label: 'Activities' },
@@ -49,6 +50,8 @@ async function translateText(text: string, from: Language, to: Language): Promis
     },
     body: JSON.stringify({ text, from, to }),
   });
+  // A 429 for the AI limit opens the rate limit dialog
+  void reportRateLimit(response);
 
   const data = await response.json();
 
@@ -369,6 +372,8 @@ function Language() {
           usedSentences: writingKnownSentences,
         }),
       });
+      // A 429 for the AI limit opens the rate limit dialog
+      void reportRateLimit(response);
 
       const data = await response.json();
 
@@ -472,6 +477,8 @@ function Language() {
         },
         body: JSON.stringify({ text: writingWordText, voice }),
       });
+      // A 429 for the AI limit opens the rate limit dialog
+      void reportRateLimit(response);
 
       if (!response.ok) {
         const data = await response.json();
@@ -586,6 +593,8 @@ function Language() {
         },
         body: JSON.stringify({ text }),
       });
+      // A 429 for the AI limit opens the rate limit dialog
+      void reportRateLimit(response);
 
       if (!response.ok) {
         const data = await response.json();
@@ -625,6 +634,8 @@ function Language() {
           to: toLanguage,
         }),
       });
+      // A 429 for the AI limit opens the rate limit dialog
+      void reportRateLimit(response);
 
       const data = await response.json();
 
@@ -662,6 +673,8 @@ function Language() {
         },
         body: JSON.stringify({ text }),
       });
+      // A 429 for the AI limit opens the rate limit dialog
+      void reportRateLimit(response);
 
       if (!response.ok) {
         const data = await response.json();
@@ -710,6 +723,8 @@ function Language() {
           to: userLanguage,
         }),
       });
+      // A 429 for the AI limit opens the rate limit dialog
+      void reportRateLimit(response);
 
       const data = await response.json();
 
@@ -747,6 +762,8 @@ function Language() {
         },
         body: JSON.stringify({ history: [], difficulty: friendDifficulty, language: learnLanguage }),
       });
+      // A 429 for the AI limit opens the rate limit dialog
+      void reportRateLimit(response);
 
       const data = await response.json();
 
@@ -781,6 +798,8 @@ function Language() {
         },
         body: JSON.stringify({ text, language: learnLanguage }),
       });
+      // A 429 for the AI limit opens the rate limit dialog
+      void reportRateLimit(response);
 
       const data = await response.json();
 
@@ -818,6 +837,8 @@ function Language() {
           language: learnLanguage,
         }),
       });
+      // A 429 for the AI limit opens the rate limit dialog
+      void reportRateLimit(response);
 
       const data = await response.json();
 
@@ -854,6 +875,8 @@ function Language() {
           to: userLanguage,
         }),
       });
+      // A 429 for the AI limit opens the rate limit dialog
+      void reportRateLimit(response);
 
       const data = await response.json();
 

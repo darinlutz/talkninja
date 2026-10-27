@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { passwordProblem } from '@/lib/passwordRules';
 import { createSession } from '@/lib/session';
 import { createUser, EmailTakenError } from '@/lib/users';
 import { isLanguage } from '@/lib/languages';
@@ -20,8 +21,9 @@ export async function POST(request: Request) {
     if (!EMAIL_REGEX.test(emailAddress)) {
       return NextResponse.json({ error: 'Invalid email address' }, { status: 400 });
     }
-    if (password.length < 8) {
-      return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
+    const problem = passwordProblem(password);
+    if (problem) {
+      return NextResponse.json({ error: problem }, { status: 400 });
     }
     if (!isLanguage(body.nativeLanguage) || !isLanguage(body.activeLearningLanguage)) {
       return NextResponse.json({ error: 'Pick a language you speak and one to learn' }, { status: 400 });

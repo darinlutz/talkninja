@@ -1,0 +1,77 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
+import type { CallbackHandlerMethods } from '@langchain/core/callbacks/base';
+import type { LLMResult } from '@langchain/core/outputs';
+import { query } from './db';
+
+// Token counts for the Admin page's AI Usage report. aiRateLimit's track() runs a route's AI work with its
+// "AiUsage" row in context; chatModel (src/lib/aiModels.ts) then gives the model a callback that adds
+// each model call's tokens to that row. A route can make several model calls per AI call (the Reading Test's word
+// translation and relevance rating), so they add up. AI calls made outside track() (or without a chat model, e.g.
+// speech) record none. track() also puts the caller's
+// AI model category (Admin or User) in context, which chatModel uses to pick the feature's model.
+
+const currentUsage = new AsyncLocalStorage<{ usageId: number | null; category: string }>();
+
+// Runs work with the AiUsage row usageId (null when the call wasn't logged) and the caller's AI model category in
+// context
+export function withAiUsage<T>(usageId: number | null, category: string, work: () => Promise<T>): Promise<T> {
+  return currentUsage.run({ usageId, category }, work);
+}
+
+// The AI model category of the call in context, or undefined outside track()
+export function currentAiModelCategory(): string | undefined {
+  return currentUsage.getStore()?.category;
+}
+
+type UsageMetadata = {
+  input_tokens?: number;
+  output_tokens?: number;
+  input_token_details?: { cache_read?: number };
+};
+
+// The tokens of one model call: the message's usage_metadata, else the provider's own tokenUsage
+function tokensOf(output: LLMResult) {
+  let input = 0;
+  let output_ = 0;
+  let cached = 0;
+  let found = false;
+  for (const generation of output.generations.flat()) {
+    const usage = (generation as { message?: { usage_metadata?: UsageMetadata } }).message?.usage_metadata;
+    if (!usage) continue;
+    found = true;
+    input += usage.input_tokens ?? 0;
+    output_ += usage.output_tokens ?? 0;
+    cached += usage.input_token_details?.cache_read ?? 0;
+  }
+  if (!found) {
+    const usage = output.llmOutput?.tokenUsage as { promptTokens?: number; completionTokens?: number } | undefined;
+    input = usage?.promptTokens ?? 0;
+    output_ = usage?.completionTokens ?? 0;
+  }
+  return { input, output: output_, cached };
+}
+
+// Callbacks for a chat model made now: they add every call's tokens (and the model's name) to the AiUsage row in
+// context. None when there's no row. Recording never fails the AI call.
+export function tokenUsageCallbacks(model: string): CallbackHandlerMethods[] {
+  const usageId = currentUsage.getStore()?.usageId;
+  if (usageId === undefined || usageId === null) return [];
+  return [
+    {
+      handleLLMEnd: async (output: LLMResult) => {
+        const tokens = tokensOf(output);
+        try {
+          await query(
+            `UPDATE "AiUsage"
+             SET input_tokens = input_tokens + $2, cached_input_tokens = cached_input_tokens + $3,
+                 output_tokens = output_tokens + $4, model_calls = model_calls + 1, model = $5
+             WHERE id = $1`,
+            [usageId, tokens.input, tokens.cached, tokens.output, model]
+          );
+        } catch (error) {
+          console.error('Failed to record AI token usage:', error);
+        }
+      },
+    },
+  ];
+}

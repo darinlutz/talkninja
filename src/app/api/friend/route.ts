@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
 import { aiErrorResponse } from '@/lib/aiErrors';
 import { chatWithFriend, ChatMessage, DEFAULT_FRIEND_DIFFICULTY } from '@/lib/friend';
 import { Difficulty } from '@/lib/language';
@@ -20,6 +21,8 @@ export async function POST(request: Request) {
   const access = await checkPracticeAccess();
   if (access.denied) return access.denied;
 
+  // Set just before the AI call; refunded if it fails, so failures don't count
+  let limit: AiRateLimit | null = null;
   try {
     const body: FriendRequest = await request.json();
 
@@ -45,10 +48,14 @@ export async function POST(request: Request) {
       );
     }
 
-    const reply = await chatWithFriend(body.history, difficulty, language);
+    limit = await aiRateLimit(request, 'friendChat', access.user);
+    if (limit.response) return limit.response;
+
+    const reply = await limit.track(() => chatWithFriend(body.history, difficulty, language));
 
     return NextResponse.json({ success: true, reply }, { status: 200 });
   } catch (error) {
+    await limit?.refund();
     console.error('Friend chat error:', error);
 
     return aiErrorResponse(error, 'Failed to get a reply');

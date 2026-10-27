@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
 import { aiErrorResponse } from '@/lib/aiErrors';
 import type { Language } from '@/lib/translate';
 import { alignTranslation } from '@/lib/wordAlignment';
@@ -14,6 +15,8 @@ export async function POST(request: Request) {
   const access = await checkPracticeAccess();
   if (access.denied) return access.denied;
 
+  // Set just before the AI call; refunded if it fails, so failures don't count
+  let limit: AiRateLimit | null = null;
   try {
     const body = await request.json().catch(() => ({}));
     const { sentence, translation } = body;
@@ -34,10 +37,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'OpenAI API key not configured' }, { status: 500 });
     }
 
-    const segments = await alignTranslation(sentence, body.from, translation, body.to);
+    limit = await aiRateLimit(request, 'wordAlignment', access.user);
+    if (limit.response) return limit.response;
+
+    const segments = await limit.track(() => alignTranslation(sentence, body.from, translation, body.to));
 
     return NextResponse.json({ success: true, ...segments }, { status: 200 });
   } catch (error) {
+    await limit?.refund();
     console.error('Align error:', error);
     return aiErrorResponse(error, 'Failed to align translation');
   }

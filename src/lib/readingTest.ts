@@ -1,5 +1,5 @@
 import { ChatPromptTemplate } from '@langchain/core/prompts';
-import { ChatOpenAI } from '@langchain/openai';
+import { structuredModel } from './aiModels';
 import { z } from 'zod';
 import type { Language } from '@/lib/translate';
 import {
@@ -106,9 +106,7 @@ export async function generateReadingTest(
     throw new Error('OPENAI_API_KEY is not configured');
   }
 
-  const model = new ChatOpenAI({ model: 'gpt-4o', temperature: 1 });
-  const structuredModel = model.withStructuredOutput(ReadingTestSchema);
-  const chain = PROMPT_TEMPLATE.pipe(structuredModel);
+  const chain = PROMPT_TEMPLATE.pipe(await structuredModel('readingTest', ReadingTestSchema, 1));
 
   const response = await chain.invoke({
     learnLanguage,
@@ -170,9 +168,7 @@ export async function generateTestSentence(
     throw new Error('OPENAI_API_KEY is not configured');
   }
 
-  const model = new ChatOpenAI({ model: 'gpt-4o', temperature: 1 });
-  const structuredModel = model.withStructuredOutput(SentenceSchema);
-  const chain = SENTENCE_PROMPT.pipe(structuredModel);
+  const chain = SENTENCE_PROMPT.pipe(await structuredModel('testSentence', SentenceSchema, 1));
 
   const response = await chain.invoke({
     learnLanguage,

@@ -5,6 +5,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import type { Language } from '@/lib/translate';
 import type { WordCategory } from '@/lib/language';
 import { DIFFICULTY_LEVELS, difficultyOptionLabel } from '@/lib/languageTestClient';
+import { reportRateLimit } from '@/lib/rateLimitClient';
 
 const WORD_CATEGORIES: { value: WordCategory; label: string }[] = [
   { value: 'activities', label: 'Activities' },
@@ -35,6 +36,8 @@ async function translateText(text: string, from: Language, to: Language): Promis
     },
     body: JSON.stringify({ text, from, to }),
   });
+  // A 429 for the AI limit opens the rate limit dialog
+  void reportRateLimit(response);
 
   const data = await response.json();
 
@@ -120,6 +123,8 @@ export default function LanguageForm({ wordLanguage, answerLanguage }: LanguageF
         },
         body: JSON.stringify({ text: word }),
       });
+      // A 429 for the AI limit opens the rate limit dialog
+      void reportRateLimit(response);
 
       if (!response.ok) {
         const data = await response.json();
@@ -247,6 +252,8 @@ export default function LanguageForm({ wordLanguage, answerLanguage }: LanguageF
           usedSentences: Array.from(new Set([...usedSentences.slice(-8), ...knownSentences])),
         }),
       });
+      // A 429 for the AI limit opens the rate limit dialog
+      void reportRateLimit(response);
 
       const data = await response.json();
 

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
 import { aiErrorResponse } from '@/lib/aiErrors';
 import { translateText, type Language } from '@/lib/translate';
 import { LANGUAGES } from '@/lib/languages';
@@ -11,6 +12,8 @@ export async function POST(request: Request) {
   const access = await checkPracticeAccess();
   if (access.denied) return access.denied;
 
+  // Set just before the AI call; refunded if it fails, so failures don't count
+  let limit: AiRateLimit | null = null;
   try {
     const body = await request.json().catch(() => ({}));
     const text = body.text;
@@ -33,10 +36,14 @@ export async function POST(request: Request) {
       );
     }
 
-    const translation = await translateText(text, from, to);
+    limit = await aiRateLimit(request, 'translate', access.user);
+    if (limit.response) return limit.response;
+
+    const translation = await limit.track(() => translateText(text, from, to));
 
     return NextResponse.json({ success: true, translation }, { status: 200 });
   } catch (error) {
+    await limit?.refund();
     console.error('Translate error:', error);
 
     return aiErrorResponse(error, 'Failed to translate text');

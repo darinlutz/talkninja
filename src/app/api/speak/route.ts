@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { aiErrorResponse } from '@/lib/aiErrors';
+import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
 import { checkPracticeAccess } from '@/lib/practiceAccess';
 
 export async function POST(request: Request) {
@@ -7,6 +8,8 @@ export async function POST(request: Request) {
   const access = await checkPracticeAccess();
   if (access.denied) return access.denied;
 
+  // Set just before the AI call; refunded if it fails, so failures don't count
+  let limit: AiRateLimit | null = null;
   try {
     const body = await request.json();
     const text = body.text;
@@ -28,7 +31,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const res = await fetch('https://api.openai.com/v1/audio/speech', {
+    limit = await aiRateLimit(request, 'speech', access.user);
+    if (limit.response) return limit.response;
+
+    // Text to speech has no tokens to record, but runs in track() like every AI call
+    const res = await limit.track(() => fetch('https://api.openai.com/v1/audio/speech', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -40,11 +47,12 @@ export async function POST(request: Request) {
         input: text,
         response_format: 'mp3',
       }),
-    });
+    }));
 
     if (!res.ok) {
       const errorText = await res.text();
       console.error('OpenAI TTS error:', errorText);
+      await limit.refund();
       return aiErrorResponse(errorText, 'Failed to generate speech');
     }
 
@@ -57,6 +65,7 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
+    await limit?.refund();
     console.error('Speak error:', error);
 
     return aiErrorResponse(error, 'Failed to generate speech');

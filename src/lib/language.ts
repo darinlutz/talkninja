@@ -1,6 +1,6 @@
 import { Annotation, StateGraph, START, END } from '@langchain/langgraph';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
-import { ChatOpenAI } from '@langchain/openai';
+import { structuredModel } from './aiModels';
 import { z } from 'zod';
 import { getVocabSheetCsvUrl } from './vocabSheet';
 import { difficultyGuide, MAX_READING_TEST_DIFFICULTY } from './readingTest';
@@ -268,9 +268,7 @@ async function generateSentenceNode(
   const recentSentences =
     state.usedSentences.length > 0 ? state.usedSentences.join('\n') : 'None yet.';
 
-  const model = new ChatOpenAI({ model: 'gpt-4o', temperature: 1 });
-  const structuredModel = model.withStructuredOutput(SentenceSchema);
-  const chain = promptTemplate.pipe(structuredModel);
+  const chain = promptTemplate.pipe(await structuredModel('practiceSentence', SentenceSchema, 1));
 
   const response = await chain.invoke({
     vocabulary: vocabularyText,

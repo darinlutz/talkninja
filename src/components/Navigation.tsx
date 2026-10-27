@@ -7,8 +7,9 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 type NavigationProps = {
-  // isSubscribed hides Pricing, since there's nothing left to buy
-  user: { userName: string; isSubscribed: boolean } | null;
+  // isSubscribed hides Pricing, since there's nothing left to buy; isAdmin
+  // shows the Admin link (the role is read from the database by the layout)
+  user: { userName: string; isSubscribed: boolean; isAdmin: boolean } | null;
 };
 
 export default function Navigation({ user }: NavigationProps) {
@@ -83,6 +84,14 @@ export default function Navigation({ user }: NavigationProps) {
           <div className="hidden md:flex items-center gap-3 justify-self-end">
             {user ? (
               <>
+                {user.isAdmin && (
+                  <Link
+                    href="/admin"
+                    className="px-3 py-2 text-dark-blue hover:text-powder-600 transition-colors font-medium whitespace-nowrap"
+                  >
+                    Admin
+                  </Link>
+                )}
                 <Link
                   href="/account"
                   className="px-3 py-2 text-dark-blue hover:text-powder-600 transition-colors font-medium whitespace-nowrap"
@@ -175,6 +184,15 @@ export default function Navigation({ user }: NavigationProps) {
             <div className="border-t border-slate-200 pt-2 mt-2">
               {user ? (
                 <>
+                  {user.isAdmin && (
+                    <Link
+                      href="/admin"
+                      className="block px-3 py-2 rounded-md text-base font-medium text-dark-blue hover:text-powder-600 hover:bg-slate-100 transition-colors"
+                      onClick={closeMenu}
+                    >
+                      Admin
+                    </Link>
+                  )}
                   <Link
                     href="/account"
                     className="block px-3 py-2 rounded-md text-base font-medium text-dark-blue hover:text-powder-600 hover:bg-slate-100 transition-colors"

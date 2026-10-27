@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { LANGUAGE_CODES, type Language } from '@/lib/languages';
+import { reportRateLimit } from '@/lib/rateLimitClient';
 
 // Shows the whole site in the signed-in user's "I speak" language (Account
 // page, Language Setup). The site is written in English, so for any other
@@ -169,6 +170,8 @@ function createTranslator(language: Language) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ texts: batch, language }),
           });
+          // A 429 for the AI limit opens the rate limit dialog
+          void reportRateLimit(response);
           const data = await response.json();
           if (!response.ok || !Array.isArray(data.translations)) throw new Error(data.error);
           batch.forEach((text, i) => {

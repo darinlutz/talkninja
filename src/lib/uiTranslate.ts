@@ -1,5 +1,5 @@
 import { ChatPromptTemplate } from '@langchain/core/prompts';
-import { ChatOpenAI } from '@langchain/openai';
+import { structuredModel } from './aiModels';
 import { z } from 'zod';
 import type { Language } from './languages';
 
@@ -48,8 +48,7 @@ export async function translateUiStrings(texts: string[], toLanguage: Language):
       throw new Error('OPENAI_API_KEY is not configured');
     }
 
-    const model = new ChatOpenAI({ model: 'gpt-4o-mini', temperature: 0 });
-    const chain = PROMPT_TEMPLATE.pipe(model.withStructuredOutput(UiTranslationsSchema));
+    const chain = PROMPT_TEMPLATE.pipe(await structuredModel('uiTranslate', UiTranslationsSchema, 0));
     const response = await chain.invoke({
       toLanguage,
       strings: JSON.stringify(missing.map((text, id) => ({ id, text }))),

@@ -21,6 +21,7 @@ import type { RecordedActivity } from '@/lib/languageLevels';
 import { progressFor, useProgressRecorder, useWorkingLevelDefault } from '@/lib/useLanguageProgress';
 import TestScore from '@/components/TestScore';
 import ProgressUpdate from '@/components/ProgressUpdate';
+import { reportRateLimit } from '@/lib/rateLimitClient';
 
 type SpeakStatus = 'idle' | 'loading' | 'error';
 
@@ -112,6 +113,8 @@ export default function ReadingTest({
           avoid: recentSentences.current,
         }),
       });
+      // A 429 for the AI limit opens the rate limit dialog
+      void reportRateLimit(response);
 
       const data = await response.json();
 
