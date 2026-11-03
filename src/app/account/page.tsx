@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import CancelSubscriptionButton from '@/components/CancelSubscriptionButton';
 import ChangePasswordButton from '@/components/ChangePasswordButton';
-import DeleteAccountButton from '@/components/DeleteAccountButton';
+import PrivacyDataSection from '@/components/PrivacyDataSection';
 import MyAiUsageCard from '@/components/MyAiUsageCard';
 import { readOwnAiUsage } from '@/lib/rateLimits';
 import { isAdmin } from '@/lib/roles';
@@ -115,8 +115,6 @@ export default async function AccountPage() {
           {isSubscribed && <CancelSubscriptionButton />}
           {/* Every account has a password (there's no Google sign-in) */}
           <ChangePasswordButton />
-          {/* Admins can't delete their account, so there's always an Admin */}
-          {!isAdmin(user.role) && <DeleteAccountButton isSubscribed={isSubscribed} />}
         </div>
 
         <div className="bg-slate-50 rounded-xl border border-slate-200 p-6 sm:p-8">
@@ -181,6 +179,10 @@ export default async function AccountPage() {
         </div>
 
         <MyAiUsageCard day={aiUsage.day} week={aiUsage.week} />
+
+        {/* Download My Data, Cookie Settings and Delete My Account. Admins can't delete their account, so there's
+            always an Admin */}
+        <PrivacyDataSection isSubscribed={isSubscribed} canDelete={!isAdmin(user.role)} />
       </div>
     </section>
   );

@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import ForgotPasswordForm from './ForgotPasswordForm';
 import { DEFAULT_LEARN_LANGUAGE, DEFAULT_USER_LANGUAGE, LANGUAGES, type Language } from '@/lib/languages';
+import { en, fill } from '@/lib/i18n/en';
+import { MINIMUM_AGE, POLICY_VERSIONS } from '@/lib/policyVersions';
 
 const inputClass =
   'w-full px-4 py-3 bg-white border border-slate-300 rounded-lg text-dark-blue placeholder-slate-400 focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors';
@@ -21,6 +23,11 @@ export default function SignupForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [forgotPassword, setForgotPassword] = useState(false);
+  // Two separate, unticked boxes: the age requirement and the Terms (the contract). The Privacy Policy is a notice,
+  // linked but not "agreed to".
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const t = en.signup;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -28,6 +35,14 @@ export default function SignupForm() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!ageConfirmed) {
+      setError(fill(t.mustConfirmAge, { age: MINIMUM_AGE }));
+      return;
+    }
+    if (!acceptedTerms) {
+      setError(t.mustAcceptTerms);
+      return;
+    }
     setLoading(true);
     setError('');
 
@@ -35,7 +50,13 @@ export default function SignupForm() {
       const response = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          ageConfirmed,
+          acceptedTerms,
+          // The versions this page showed; the server refuses an outdated one
+          policyVersions: { terms: POLICY_VERSIONS.terms, privacy: POLICY_VERSIONS.privacy },
+        }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -146,6 +167,44 @@ export default function SignupForm() {
         </div>
       </div>
       <p className="-mt-3 text-sm text-slate-500">You can change these anytime on your Account page.</p>
+
+      <div className="space-y-3 text-sm text-dark-blue">
+        <label className="flex items-start gap-2">
+          <input
+            type="checkbox"
+            name="ageConfirmed"
+            checked={ageConfirmed}
+            onChange={(e) => setAgeConfirmed(e.target.checked)}
+            required
+            className="mt-1"
+          />
+          <span>{fill(t.ageConfirm, { age: MINIMUM_AGE })}</span>
+        </label>
+        <label className="flex items-start gap-2">
+          <input
+            type="checkbox"
+            name="acceptedTerms"
+            checked={acceptedTerms}
+            onChange={(e) => setAcceptedTerms(e.target.checked)}
+            required
+            className="mt-1"
+          />
+          <span>
+            {t.termsAgreeBefore}
+            <Link href="/terms" target="_blank" className="text-powder-600 hover:underline font-medium">
+              {en.footer.terms}
+            </Link>
+            {t.termsAgreeAfter}
+          </span>
+        </label>
+        <p className="text-slate-600">
+          {t.privacyNoticeBefore}
+          <Link href="/privacy" target="_blank" className="text-powder-600 hover:underline font-medium">
+            {en.footer.privacy}
+          </Link>
+          {t.privacyNoticeAfter}
+        </p>
+      </div>
 
       {error && (
         <p className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{error}</p>

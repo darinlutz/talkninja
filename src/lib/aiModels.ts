@@ -19,7 +19,6 @@ import {
   isAiModel,
   isAiModelCategory,
   isClaudeModel,
-  isDeepSeekModel,
   SYSTEM_AI_MODEL_CATEGORY,
 } from './aiModelList';
 import { currentAiModelCategory, tokenUsageCallbacks } from './aiTokenUsage';
@@ -27,7 +26,7 @@ import { ensureUserSchema } from './users';
 
 export * from './aiModelList';
 
-// Which OpenAI, Anthropic or DeepSeek model each AI feature uses for each category of caller (Admin or User; see
+// Which OpenAI or Anthropic model each AI feature uses for each category of caller (Admin or User; see
 // aiModelCategoryOf), chosen on the Admin page's AI Model Control section and kept in "SiteSettings" (key
 // ai_model:<category>:<feature>). A category with no row for a feature uses its default (AI_FEATURES in
 // src/lib/aiModelList.ts). Every AI call gets its model from chatModel or structuredModel below, which read the
@@ -96,27 +95,12 @@ export async function getAiModel(feature: AiFeature): Promise<AiModel> {
 // gpt-5 and later are reasoning models: OpenAI refuses any temperature but the default for them
 const isReasoningModel = (model: string) => model.startsWith('gpt-5');
 
-// DeepSeek's API is OpenAI-compatible. Its models think by default, which ChatOpenAI doesn't handle, so thinking
-// is turned off; without it they take a temperature.
-const DEEPSEEK_BASE_URL = 'https://api.deepseek.com';
-
 function makeChatModel(model: AiModel, temperature: number): BaseChatModel {
   const callbacks = tokenUsageCallbacks(model);
   if (isClaudeModel(model)) {
     if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is not configured');
     // Current Claude models refuse a temperature, so none is sent
     return new ChatAnthropic({ model, maxTokens: 16000, outputConfig: { effort: 'low' }, callbacks });
-  }
-  if (isDeepSeekModel(model)) {
-    if (!process.env.DEEPSEEK_API_KEY) throw new Error('DEEPSEEK_API_KEY is not configured');
-    return new ChatOpenAI({
-      model,
-      temperature,
-      apiKey: process.env.DEEPSEEK_API_KEY,
-      configuration: { baseURL: DEEPSEEK_BASE_URL },
-      modelKwargs: { thinking: { type: 'disabled' } },
-      callbacks,
-    });
   }
   // Reasoning models get low effort instead of the temperature, since their reasoning is billed as output
   // tokens. They go through the Responses API, so read replies with .text, not .content.
@@ -133,14 +117,13 @@ export async function chatModel(feature: AiFeature, temperature: number): Promis
 }
 
 // The feature's chat model answering in `schema`'s shape. Claude models use their native JSON-schema output;
-// DeepSeek has no JSON-schema response format, so it answers through a tool call; OpenAI models use LangChain's
-// default (JSON schema).
+// OpenAI models use LangChain's default (JSON schema).
 export async function structuredModel<T extends Record<string, unknown>>(
   feature: AiFeature,
   schema: z.ZodType<T>,
   temperature: number
 ): Promise<Runnable<BaseLanguageModelInput, T>> {
   const model = await getAiModel(feature);
-  const method = isClaudeModel(model) ? 'jsonSchema' : isDeepSeekModel(model) ? 'functionCalling' : undefined;
+  const method = isClaudeModel(model) ? 'jsonSchema' : undefined;
   return makeChatModel(model, temperature).withStructuredOutput<T>(schema, method ? { method } : undefined);
 }

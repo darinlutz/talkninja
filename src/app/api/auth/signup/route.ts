@@ -5,6 +5,9 @@ import { createUser, EmailTakenError } from '@/lib/users';
 import { isLanguage } from '@/lib/languages';
 import { startLanguage } from '@/lib/languageProgress';
 import { notifyAdmin } from '@/lib/adminNotification';
+import { acceptsCurrentTerms, MINIMUM_AGE } from '@/lib/policyVersions';
+import { linkConsentToUser } from '@/lib/cookieConsentRecords';
+import { getConsentBrowserId } from '@/lib/cookieConsentServer';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -28,6 +31,16 @@ export async function POST(request: Request) {
     if (!isLanguage(body.nativeLanguage) || !isLanguage(body.activeLearningLanguage)) {
       return NextResponse.json({ error: 'Pick a language you speak and one to learn' }, { status: 400 });
     }
+    // The form's two checkboxes: 18+ and the current Terms (recorded with the account by createUser)
+    if (body.ageConfirmed !== true) {
+      return NextResponse.json({ error: `You must be at least ${MINIMUM_AGE} to create an account.` }, { status: 400 });
+    }
+    if (body.acceptedTerms !== true || !acceptsCurrentTerms(body.policyVersions)) {
+      return NextResponse.json(
+        { error: 'Please accept the Terms of Service (reload the page if they have just changed).' },
+        { status: 400 }
+      );
+    }
 
     const user = await createUser({
       userName,
@@ -44,6 +57,9 @@ export async function POST(request: Request) {
     await startLanguage(user.id, body.activeLearningLanguage).catch((error) =>
       console.error('Signup language start error:', error)
     );
+    // Cookie choices this browser made before signing up now belong to the account (for access/deletion requests)
+    const browserId = await getConsentBrowserId();
+    if (browserId) await linkConsentToUser(browserId, user.id).catch(() => {});
     await notifyAdmin('signup', user.emailAddress);
     return NextResponse.json({ user: { userName: user.userName } }, { status: 201 });
   } catch (error) {

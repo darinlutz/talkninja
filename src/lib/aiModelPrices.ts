@@ -2,7 +2,7 @@ import { AI_MODELS, type AiModel } from './aiModelList';
 
 // Each offered model's list price in US dollars per million tokens, for the Admin page's AI Model Costs table
 // (src/components/AiModelCostTable.tsx). Estimates from the providers' published prices as of October 2026:
-// OpenAI's and Anthropic's standard tiers; DeepSeek's V4 prices for deepseek-flash and deepseek-v4-pro. A new
+// OpenAI's and Anthropic's standard tiers. A new
 // model in AI_MODELS needs its price here too.
 export type AiModelPrice = { input: number; cachedInput: number; output: number };
 
@@ -22,8 +22,6 @@ export const AI_MODEL_PRICES: Record<AiModel, AiModelPrice> = {
   'gpt-5.5': { input: 5, cachedInput: 0.5, output: 30 },
   'claude-sonnet-5-5': { input: 2, cachedInput: 0.2, output: 10 },
   'claude-opus-5-5': { input: 4, cachedInput: 0.2, output: 20 },
-  'deepseek-flash': { input: 0.14, cachedInput: 0.028, output: 0.28 },
-  'deepseek-v4-pro': { input: 1.74, cachedInput: 0.145, output: 3.48 },
 };
 
 // The tokens of a typical AI call (all its model calls together; input includes the cached part)

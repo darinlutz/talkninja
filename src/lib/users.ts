@@ -4,6 +4,8 @@ import { DB_SCHEMA, isUniqueViolation, query, transaction } from './db';
 import { isOwnerEmail, OWNER_EMAIL, ROLES, type Role } from './roles';
 import { ACCOUNT_STATUS, type Plan } from './accountStatus';
 import { isLanguage, type Language } from './languages';
+import { applyPrivacySchema } from './privacyDb';
+import { POLICY_VERSIONS } from './policyVersions';
 
 const scryptAsync = promisify(scrypt) as (password: string, salt: Buffer, keylen: number) => Promise<Buffer>;
 
@@ -304,6 +306,8 @@ export function ensureUserSchema(): Promise<void> {
       await client.query(
         'CREATE UNIQUE INDEX IF NOT EXISTS rate_limit_overrides_ip_address_idx ON "RateLimitOverrides" (ip_address) WHERE ip_address IS NOT NULL'
       );
+      // Terms acceptances, cookie consent records, the deletion ledger and retention runs (src/lib/privacyDb.ts)
+      await applyPrivacySchema(client);
     }).catch((error) => {
       schemaReady = null;
       throw error;
@@ -354,30 +358,47 @@ export async function createUser(input: {
   await ensureUserSchema();
   const passwordHash = await hashPassword(input.password);
   try {
-    const rows = await query(
-      `INSERT INTO "Users" (user_name, email_address, password, account_status, signup_date, role,
-         native_language, active_learning_language)
-       VALUES ($1, $2, $3, $6, $4, $5, $7, $8)
-       RETURNING ${USER_COLUMNS}`,
-      [
-        input.userName,
-        input.emailAddress,
-        passwordHash,
-        new Date().toISOString(),
-        // Everyone signs up as a User, except the site owner
-        isOwnerEmail(input.emailAddress) ? ROLES.admin : ROLES.user,
-        ACCOUNT_STATUS.unsubscribed,
-        input.nativeLanguage,
-        input.activeLearningLanguage,
-      ]
-    );
-    return rowToUser(rows[0]);
+    // The account, its 18+ confirmation and its acceptance of the current Terms (with the Privacy Policy version
+    // shown) are saved together: the signup route only calls this once the form confirmed both
+    return await transaction(async (client) => {
+      const { rows } = await client.query(
+        `INSERT INTO "Users" (user_name, email_address, password, account_status, signup_date, role,
+           native_language, active_learning_language, age_confirmed_at, last_login_at)
+         VALUES ($1, $2, $3, $6, $4, $5, $7, $8, now(), now())
+         RETURNING ${USER_COLUMNS}`,
+        [
+          input.userName,
+          input.emailAddress,
+          passwordHash,
+          new Date().toISOString(),
+          // Everyone signs up as a User, except the site owner
+          isOwnerEmail(input.emailAddress) ? ROLES.admin : ROLES.user,
+          ACCOUNT_STATUS.unsubscribed,
+          input.nativeLanguage,
+          input.activeLearningLanguage,
+        ]
+      );
+      const user = rowToUser(rows[0]);
+      await client.query(
+        `INSERT INTO "PolicyAcceptances" (user_id, policy, version, source)
+         SELECT $1, policy, version, 'signup' FROM unnest($2::text[], $3::text[]) AS p (policy, version)`,
+        [user.id, ['terms', 'privacy'], [POLICY_VERSIONS.terms, POLICY_VERSIONS.privacy]]
+      );
+      return user;
+    });
   } catch (error) {
     if (isUniqueViolation(error)) {
       throw new EmailTakenError();
     }
     throw error;
   }
+}
+
+// Records a successful sign-in (Users.last_login_at). Never fails the sign-in.
+export async function recordLogin(userId: number): Promise<void> {
+  await query('UPDATE "Users" SET last_login_at = now() WHERE id = $1', [userId]).catch((error) =>
+    console.error('Failed to record sign-in time:', error)
+  );
 }
 
 // Returns the user only when the email exists and the password matches.
@@ -524,16 +545,8 @@ export async function checkPassword(userId: number, password: string): Promise<b
   return row ? verifyPassword(password, row.password as string) : false;
 }
 
-// Deletes the account (the Account page's Delete Account). Every table that
-// belongs to the user references "Users" ON DELETE CASCADE, so their data
-// goes with it; "CancellationReason" rows keep the name and email they
-// copied, and "AiUsage" rows are kept for the usage report. Admins can't be
-// deleted, so there's always one; returns false for an Admin or no such user.
-export async function deleteUser(userId: number): Promise<boolean> {
-  await ensureUserSchema();
-  const rows = await query('DELETE FROM "Users" WHERE id = $1 AND role <> $2 RETURNING id', [userId, ROLES.admin]);
-  return rows.length > 0;
-}
+// Deleting an account is deleteAccount in src/lib/deletionLedger.ts (Delete My Account): it records the deletion in
+// "DeletionLedger" and unlinks "AiUsage" in the same transaction.
 
 export type AdminUser = { id: number; userName: string; emailAddress: string; role: string; accountStatus: string };
 

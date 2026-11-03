@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createSession, setRememberedEmail } from '@/lib/session';
-import { authenticateUser } from '@/lib/users';
+import { authenticateUser, recordLogin } from '@/lib/users';
+import { linkConsentToUser } from '@/lib/cookieConsentRecords';
+import { getConsentBrowserId } from '@/lib/cookieConsentServer';
 
 export async function POST(request: Request) {
   try {
@@ -20,6 +22,9 @@ export async function POST(request: Request) {
 
     await createSession(user.id, rememberMe);
     await setRememberedEmail(rememberMe ? emailAddress : null);
+    await recordLogin(user.id);
+    const browserId = await getConsentBrowserId();
+    if (browserId) await linkConsentToUser(browserId, user.id).catch(() => {});
     return NextResponse.json({ user: { userName: user.userName } });
   } catch (error) {
     console.error('Login error:', error);

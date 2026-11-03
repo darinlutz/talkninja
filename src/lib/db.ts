@@ -50,3 +50,14 @@ export async function transaction<T>(fn: (client: PoolClient) => Promise<T>): Pr
 export function isUniqueViolation(error: unknown): boolean {
   return (error as { code?: string } | null)?.code === '23505';
 }
+
+// Runs `fn` on one connection (no transaction), e.g. to hold a session-level advisory lock across several
+// statements that should each commit on their own.
+export async function withClient<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
+  const client = await getPool().connect();
+  try {
+    return await fn(client);
+  } finally {
+    client.release();
+  }
+}

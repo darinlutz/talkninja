@@ -15,7 +15,7 @@ import {
   type AiModelCategory,
 } from '@/lib/aiModelList';
 
-// The Admin page's AI Model Control section: a grid of every AI feature's OpenAI, Anthropic or DeepSeek model
+// The Admin page's AI Model Control section: a grid of every AI feature's OpenAI or Anthropic model
 // for each category of caller (Admin and User; see aiModelCategoryOf in src/lib/aiModelList.ts). Only models whose
 // provider has an API key set are offered. Changed cells are saved together (PUT /api/admin/ai-models, one per
 // cell); the feature's next AI call for that category uses them.

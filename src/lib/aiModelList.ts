@@ -1,4 +1,4 @@
-// The AI features and the OpenAI, Anthropic and DeepSeek models the Admin page's AI Model Control section offers.
+// The AI features and the OpenAI and Anthropic models the Admin page's AI Model Control section offers.
 // No imports, so client components can use it; src/lib/aiModels.ts reads and saves the choices and makes the
 // chat model for each call (chatModel).
 
@@ -33,9 +33,10 @@ export const AI_FEATURE_LABELS: Record<AiFeature, string> = {
   wordRelevance: 'Custom instructions word weighting',
 };
 
-// The models the Admin page offers; only these can be saved. Add new OpenAI, Anthropic (claude-*) or DeepSeek
-// (deepseek-*) chat models here, with their price in src/lib/aiModelPrices.ts.
-// deepseek-v4-pro is DeepSeek-V4-Pro and deepseek-flash DeepSeek-V4.1-Flash, DeepSeek's latest.
+// The models the Admin page offers; only these can be saved. Add new OpenAI or Anthropic (claude-*) chat models
+// here, with their price in src/lib/aiModelPrices.ts. DeepSeek was removed (2026-11-03): it processes data in China,
+// which has no EU adequacy decision, and no transfer safeguard is in place (see docs/privacy.md). Don't add a
+// provider without updating the Privacy Policy's list of service providers (src/lib/legal.ts).
 export const AI_MODELS = [
   'gpt-4o-mini',
   'gpt-4o',
@@ -52,28 +53,24 @@ export const AI_MODELS = [
   'gpt-5.5',
   'claude-sonnet-5-5',
   'claude-opus-5-5',
-  'deepseek-flash',
-  'deepseek-v4-pro',
 ] as const;
 
 export type AiModel = (typeof AI_MODELS)[number];
 
 export const isClaudeModel = (model: string) => model.startsWith('claude-');
-export const isDeepSeekModel = (model: string) => model.startsWith('deepseek-');
 
-export type AiModelProvider = 'OpenAI' | 'Anthropic' | 'DeepSeek';
-export const AI_MODEL_PROVIDERS: readonly AiModelProvider[] = ['OpenAI', 'Anthropic', 'DeepSeek'];
+export type AiModelProvider = 'OpenAI' | 'Anthropic';
+export const AI_MODEL_PROVIDERS: readonly AiModelProvider[] = ['OpenAI', 'Anthropic'];
 
 // The env var each provider's API key is in; a provider without one isn't offered (src/lib/aiModels.ts
 // availableAiModels)
 export const AI_PROVIDER_KEYS: Record<AiModelProvider, string> = {
   OpenAI: 'OPENAI_API_KEY',
   Anthropic: 'ANTHROPIC_API_KEY',
-  DeepSeek: 'DEEPSEEK_API_KEY',
 };
 
 export function aiModelProvider(model: string): AiModelProvider {
-  return isClaudeModel(model) ? 'Anthropic' : isDeepSeekModel(model) ? 'DeepSeek' : 'OpenAI';
+  return isClaudeModel(model) ? 'Anthropic' : 'OpenAI';
 }
 
 // Each feature's model is set separately for each category of caller: Admins and everyone else. Visitors who
