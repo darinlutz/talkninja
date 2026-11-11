@@ -21,6 +21,7 @@ import {
   isClaudeModel,
   SYSTEM_AI_MODEL_CATEGORY,
 } from './aiModelList';
+import { assertAiServicesOn } from './aiKillSwitch';
 import { currentAiModelCategory, tokenUsageCallbacks } from './aiTokenUsage';
 import { ensureUserSchema } from './users';
 
@@ -111,8 +112,9 @@ function makeChatModel(model: AiModel, temperature: number): BaseChatModel {
 
 // The chat model for a feature, for the caller in context. temperature is ignored by models that refuse one.
 // Inside an AI route's limit.track(), every call's tokens are added to its AiUsage row (src/lib/aiTokenUsage.ts).
-// Read the reply with .text.
+// Read the reply with .text. Throws AiServicesStoppedError while the Admin page's emergency stop is on.
 export async function chatModel(feature: AiFeature, temperature: number): Promise<BaseChatModel> {
+  await assertAiServicesOn();
   return makeChatModel(await getAiModel(feature), temperature);
 }
 
@@ -123,6 +125,7 @@ export async function structuredModel<T extends Record<string, unknown>>(
   schema: z.ZodType<T>,
   temperature: number
 ): Promise<Runnable<BaseLanguageModelInput, T>> {
+  await assertAiServicesOn();
   const model = await getAiModel(feature);
   const method = isClaudeModel(model) ? 'jsonSchema' : undefined;
   return makeChatModel(model, temperature).withStructuredOutput<T>(schema, method ? { method } : undefined);

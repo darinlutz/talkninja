@@ -15,6 +15,7 @@ export const RATE_LIMITED_FEATURES = [
   'readingTest',
   'writingTest',
   'speech',
+  'imageSearch',
 ] as const;
 
 export type RateLimitedFeature = (typeof RATE_LIMITED_FEATURES)[number];
@@ -33,6 +34,7 @@ export const RATE_LIMITED_FEATURE_LABELS: Record<RateLimitedFeature, string> = {
   readingTest: 'Reading Test (/api/language/reading-test)',
   writingTest: 'Training & Writing Test (/api/language/writing-test)',
   speech: 'Text to speech (/api/speak)',
+  imageSearch: 'Training picture search (/api/language/image)',
 };
 
 // Signed-in users, plus visitors who aren't signed in, whose calls are counted by IP address
@@ -148,7 +150,7 @@ export type UsageRange = (typeof USAGE_RANGES)[number];
 // A Training session or test makes several AI calls per question (a sentence, its alignment, its voice), so the
 // User limit is generous. Page translation runs on every page view, so it doesn't count.
 export const DEFAULT_RATE_LIMITS: RateLimitSettings = {
-  enabled: false,
+  enabled: true,
   resetStyle: 'rolling',
   exemptRoles: 'admins',
   tiers: {
@@ -167,7 +169,25 @@ export const DEFAULT_RATE_LIMITS: RateLimitSettings = {
     readingTest: 1,
     writingTest: 1,
     speech: 1,
+    imageSearch: 1,
   },
+};
+
+// Ceilings that apply to every AI call whatever the Rate Limiting settings say (even with limits off, a weight of
+// 0 or an Unlimited override), so a script or a stolen account can't loop the AI and run up the bill. They count
+// calls, not weights, and include calls that failed. Only Admins are exempt. Each can be changed with an
+// environment variable (src/lib/rateLimits.ts reads them); the site-wide cap covers every account together, against
+// many accounts at once, and emails the owner when it's reached.
+export const SAFETY_LIMITS = {
+  perUserPerMinute: 60,
+  perUserPerDay: 2000,
+  sitePerDay: 30000,
+} as const;
+export type SafetyLimits = { -readonly [K in keyof typeof SAFETY_LIMITS]: number };
+export const SAFETY_LIMIT_ENV: Record<keyof typeof SAFETY_LIMITS, string> = {
+  perUserPerMinute: 'AI_SAFETY_PER_USER_PER_MINUTE',
+  perUserPerDay: 'AI_SAFETY_PER_USER_PER_DAY',
+  sitePerDay: 'AI_SAFETY_SITE_PER_DAY',
 };
 
 const isOneOf = <T extends string>(values: readonly T[], value: unknown): value is T => values.includes(value as T);
@@ -212,7 +232,8 @@ export function parseRateLimitSettings(value: unknown, base: RateLimitSettings =
 
 // What the 429 answer of a limited AI call carries besides its message (src/components/RateLimitDialog.tsx)
 export type RateLimitInfo = {
-  reason: 'limit' | 'burst' | 'ipLimit' | 'blocked';
+  // safety: one of SAFETY_LIMITS' per-user ceilings; siteLimit: the site-wide one
+  reason: 'limit' | 'burst' | 'ipLimit' | 'blocked' | 'safety' | 'siteLimit';
   level: LimitTier;
   // A visitor who isn't signed in gets more by creating a free account
   signUp: boolean;

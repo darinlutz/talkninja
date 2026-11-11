@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint",
     "db:migrate-from-turso": "node --env-file=.env.local scripts/migrate-turso-to-postgres.mjs",
-    "test": "npm run test:privacy && npm run test:privacy:db",
+    "test": "npm run test:ai && npm run test:privacy && npm run test:privacy:db",
+    "test:ai": "node --experimental-transform-types --no-warnings --import ./scripts/test/register.mjs --test scripts/ai-guard.test.mjs",
     "test:privacy": "node --experimental-transform-types --no-warnings --import ./scripts/test/register.mjs --test scripts/privacy.test.mjs",
     "test:privacy:db": "node --experimental-transform-types --no-warnings --import ./scripts/test/register.mjs --test scripts/privacy-db.test.mjs",
     "db:reapply-deletions": "node --experimental-transform-types --no-warnings scripts/reapply-deletions.mjs"

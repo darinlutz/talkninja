@@ -7,6 +7,7 @@ import { Language } from '@/lib/translate';
 import { LANGUAGES } from '@/lib/languages';
 import { isValidTestDifficulty } from '@/lib/readingTest';
 import { checkPracticeAccess } from '@/lib/practiceAccess';
+import { AI_INPUT_LIMITS, tooLongMessage } from '@/lib/aiInputLimits';
 
 interface FriendRequest {
   history: ChatMessage[];
@@ -29,6 +30,18 @@ export async function POST(request: Request) {
     if (!Array.isArray(body.history)) {
       return NextResponse.json({ error: 'Missing conversation history' }, { status: 400 });
     }
+    const validMessages = body.history.every(
+      (m) =>
+        m && (m.role === 'user' || m.role === 'assistant') &&
+        typeof m.content === 'string' && m.content.length <= AI_INPUT_LIMITS.friendMessage
+    );
+    if (!validMessages) {
+      return NextResponse.json({ error: tooLongMessage('Each message', AI_INPUT_LIMITS.friendMessage) }, { status: 400 });
+    }
+    // Only the latest messages go to the model, so a long conversation can't grow the prompt without end
+    const history = body.history
+      .slice(-AI_INPUT_LIMITS.friendHistory)
+      .map((m) => ({ role: m.role, content: m.content }));
 
     const requestedDifficulty = Number(body.difficulty);
     const difficulty: Difficulty = isValidTestDifficulty(requestedDifficulty)
@@ -51,7 +64,7 @@ export async function POST(request: Request) {
     limit = await aiRateLimit(request, 'friendChat', access.user);
     if (limit.response) return limit.response;
 
-    const reply = await limit.track(() => chatWithFriend(body.history, difficulty, language));
+    const reply = await limit.track(() => chatWithFriend(history, difficulty, language));
 
     return NextResponse.json({ success: true, reply }, { status: 200 });
   } catch (error) {

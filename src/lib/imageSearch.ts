@@ -1,9 +1,12 @@
+import { assertAiServicesOn } from './aiKillSwitch';
+
 interface TavilyImageSearchResponse {
   images?: Array<string | { url: string }>;
 }
 
-// Uses the Tavily web search API's image-search option.
+// Uses the Tavily web search API's image-search option (billed per search, so it obeys the emergency stop).
 export async function searchSentenceImage(query: string): Promise<string | null> {
+  await assertAiServicesOn();
   const apiKey = process.env.TAVILY_API_KEY;
   if (!apiKey) {
     throw new Error('TAVILY_API_KEY is not configured');

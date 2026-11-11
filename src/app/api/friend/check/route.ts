@@ -4,6 +4,7 @@ import { aiErrorResponse } from '@/lib/aiErrors';
 import { checkGrammar } from '@/lib/grammarCheck';
 import { LANGUAGES, type Language } from '@/lib/languages';
 import { checkPracticeAccess } from '@/lib/practiceAccess';
+import { AI_INPUT_LIMITS, tooLongMessage } from '@/lib/aiInputLimits';
 
 const VALID_LANGUAGES: readonly Language[] = LANGUAGES;
 
@@ -21,6 +22,9 @@ export async function POST(request: Request) {
 
     if (!text || typeof text !== 'string' || !text.trim()) {
       return NextResponse.json({ error: 'Missing text to check' }, { status: 400 });
+    }
+    if (text.length > AI_INPUT_LIMITS.friendMessage) {
+      return NextResponse.json({ error: tooLongMessage('Text to check', AI_INPUT_LIMITS.friendMessage) }, { status: 400 });
     }
 
     const apiKey = process.env.OPENAI_API_KEY;

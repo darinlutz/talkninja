@@ -5,6 +5,7 @@ import type { Language } from '@/lib/translate';
 import { alignTranslation } from '@/lib/wordAlignment';
 import { LANGUAGES } from '@/lib/languages';
 import { checkPracticeAccess } from '@/lib/practiceAccess';
+import { AI_INPUT_LIMITS, tooLongMessage } from '@/lib/aiInputLimits';
 
 const VALID_LANGUAGES: readonly Language[] = LANGUAGES;
 
@@ -26,6 +27,9 @@ export async function POST(request: Request) {
       typeof translation !== 'string' || !translation.trim()
     ) {
       return NextResponse.json({ error: 'Missing sentence or translation' }, { status: 400 });
+    }
+    if (sentence.length > AI_INPUT_LIMITS.alignText || translation.length > AI_INPUT_LIMITS.alignText) {
+      return NextResponse.json({ error: tooLongMessage('The sentence and its translation', AI_INPUT_LIMITS.alignText) }, { status: 400 });
     }
 
     if (!VALID_LANGUAGES.includes(body.from) || !VALID_LANGUAGES.includes(body.to)) {

@@ -1,6 +1,8 @@
 import { isIP } from 'node:net';
 import { NextResponse } from 'next/server';
 import type { PoolClient } from 'pg';
+import { notifyAdminAlert } from './adminNotification';
+import { AI_STOPPED_MESSAGE, aiServicesOn } from './aiKillSwitch';
 import { aiModelCategoryOf } from './aiModelList';
 import { withAiUsage } from './aiTokenUsage';
 import { query, transaction } from './db';
@@ -17,17 +19,22 @@ import {
   type RateLimitOverride,
   type RateLimitSettings,
   type ResetStyle,
+  SAFETY_LIMIT_ENV,
+  SAFETY_LIMITS,
+  type SafetyLimits,
   type UsageRange,
   calendarWindowEnd,
   windowStart,
 } from './rateLimitConfig';
-import { ROLES } from './roles';
+import { isAdmin, ROLES } from './roles';
 import { ensureUserSchema, type User } from './users';
 
 export * from './rateLimitConfig';
 
 // The Admin page's Rate Limiting section (src/components/RateLimitManager.tsx). Every AI route calls aiRateLimit
-// before its AI call: the call is logged in "AiUsage" and, while limits are on, refused with a 429 when the user
+// before its AI call. It refuses anyone not signed in (401) and every call while the Admin page's emergency stop is
+// on (503, src/lib/aiKillSwitch.ts), and the SAFETY_LIMITS ceilings always apply to non-Admins (429). Otherwise the
+// call is logged in "AiUsage" and, while limits are on, refused with a 429 when the user
 // (or a visitor's IP address) has used up their limit, called too often in the last minute, is over the IP address
 // cap, or is blocked by an override. The settings are JSON in "SiteSettings" (key rate_limits), the overrides in
 // "RateLimitOverrides". A new AI route must:
@@ -223,6 +230,70 @@ async function refusal(
   return null;
 }
 
+// SAFETY_LIMITS with any environment variable overrides (a positive whole number each)
+export function safetyLimits(env: Record<string, string | undefined> = process.env): SafetyLimits {
+  const limits = { ...SAFETY_LIMITS } as SafetyLimits;
+  for (const key of Object.keys(SAFETY_LIMIT_ENV) as (keyof SafetyLimits)[]) {
+    const raw = env[SAFETY_LIMIT_ENV[key]];
+    const value = raw === undefined || raw.trim() === '' ? NaN : Number(raw);
+    if (Number.isInteger(value) && value > 0) limits[key] = value;
+    else if (raw !== undefined && raw.trim() !== '') console.error(`${SAFETY_LIMIT_ENV[key]} must be a positive whole number; using ${limits[key]}`);
+  }
+  return limits;
+}
+
+// The site-wide count is read at most every 10 s per server (it scans a day of calls)
+const SITE_COUNT_CACHE_MS = 10_000;
+let siteCount: { at: number; calls: number } | null = null;
+// The owner is emailed at most every 6 hours per server while the site-wide cap is reached
+const SITE_ALERT_EVERY_MS = 6 * 3600_000;
+let lastSiteAlert = 0;
+
+const secondsUntil = (oldest: unknown, windowMs: number) =>
+  oldest ? Math.max(1, Math.ceil((new Date(oldest as string).getTime() + windowMs - Date.now()) / 1000)) : 60;
+
+// The SAFETY_LIMITS ceiling this user's call is over, or null. Counts every call that wasn't refused, whatever its
+// weight and whether or not it failed, so neither a weight of 0 nor failing calls get around it
+async function safetyRefusal(client: PoolClient, userId: number): Promise<Refusal | null> {
+  const limits = safetyLimits();
+  const { rows } = await client.query(
+    `SELECT count(*) FILTER (WHERE created_at >= now() - interval '1 minute') AS minute,
+            min(created_at) FILTER (WHERE created_at >= now() - interval '1 minute') AS oldest_minute,
+            count(*) AS day, min(created_at) AS oldest_day
+     FROM "AiUsage" WHERE user_id = $1 AND NOT blocked AND created_at >= now() - interval '1 day'`,
+    [userId]
+  );
+  const usage = rows[0];
+  if (Number(usage.minute) >= limits.perUserPerMinute) {
+    return { reason: 'safety', rule: null, custom: false, retryAfterSeconds: secondsUntil(usage.oldest_minute, 60_000) };
+  }
+  if (Number(usage.day) >= limits.perUserPerDay) {
+    return { reason: 'safety', rule: null, custom: false, retryAfterSeconds: secondsUntil(usage.oldest_day, 86_400_000) };
+  }
+
+  if (!siteCount || Date.now() - siteCount.at > SITE_COUNT_CACHE_MS) {
+    const site = await client.query(
+      `SELECT count(*) AS calls FROM "AiUsage" WHERE NOT blocked AND created_at >= now() - interval '1 day'`
+    );
+    siteCount = { at: Date.now(), calls: Number(site.rows[0].calls) };
+  }
+  if (siteCount.calls >= limits.sitePerDay) {
+    if (Date.now() - lastSiteAlert > SITE_ALERT_EVERY_MS) {
+      lastSiteAlert = Date.now();
+      void notifyAdminAlert(
+        'AI site-wide daily cap reached',
+        `TalkNinja has made ${siteCount.calls.toLocaleString('en-US')} AI calls in the last 24 hours, the site-wide cap ` +
+          `(${limits.sitePerDay.toLocaleString('en-US')}, ${SAFETY_LIMIT_ENV.sitePerDay}). AI calls by everyone but Admins ` +
+          'are refused until the count falls below it. Check the Admin page\'s AI usage report for who is making them, ' +
+          'and use Emergency AI Stop to stop AI for everyone.'
+      );
+    }
+    return { reason: 'siteLimit', rule: null, custom: false, retryAfterSeconds: null };
+  }
+  siteCount.calls += 1;
+  return null;
+}
+
 // Old rows are deleted once a day per server
 const KEEP_DAYS = 400;
 let lastPrune = 0;
@@ -245,15 +316,25 @@ export type AiRateLimit = {
 
 const noRefund = async () => {};
 
-// The gate before every AI call: logs it, and refuses it while limits are on and the caller has used theirs up.
-// user is the signed-in user, null for a visitor; request is null where the caller's IP address means nothing
-// (work the site does for itself). A failure here never costs the user the
-// AI call: it's logged and the call goes ahead.
+// The gate before every AI call: refuses it when nobody is signed in (401) or the emergency stop is on (503), and
+// otherwise logs it and refuses it when the caller is over a safety ceiling or (while limits are on) has used
+// their limit up (429). user is the signed-in user; request is null where the caller's IP address means nothing.
+// A failure here refuses the call (503): with the database down, calls can't be counted, so none are made.
 export async function aiRateLimit(request: Request | null, feature: RateLimitedFeature, user: User | null): Promise<AiRateLimit> {
   const ip = request ? clientIp(request) : null;
   // Even an unlogged call runs with the caller's AI model category, so it uses their models
   const category = aiModelCategoryOf(user);
   const untracked = <T>(work: () => Promise<T>) => withAiUsage(null, category, work);
+  const refuse = (error: string, status: number) => ({ response: NextResponse.json({ error }, { status }), refund: noRefund, track: untracked });
+
+  // No AI without an account, whatever the route checked
+  if (!user) return refuse('Please log in to use AI features', 401);
+
+  if (!(await aiServicesOn())) {
+    console.log(`AI emergency stop: ${feature} refused for user ${user.id}`);
+    return refuse(AI_STOPPED_MESSAGE, 503);
+  }
+
   let decision: { id: number; refusal: Refusal | null; tier: LimitTier };
   try {
     const settings = await getRateLimitSettings();
@@ -262,7 +343,9 @@ export async function aiRateLimit(request: Request | null, feature: RateLimitedF
     decision = await transaction(async (client) => {
       // One decision at a time per caller, so calls made together can't all slip under the limit
       await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [user ? `ai-user:${user.id}` : `ai-ip:${ip ?? ''}`]);
-      const refused = settings.enabled && !isExempt(settings, user) ? await refusal(client, settings, weight, tier, user, ip) : null;
+      const safety = isAdmin(user.role) ? null : await safetyRefusal(client, user.id);
+      const refused =
+        safety ?? (settings.enabled && !isExempt(settings, user) ? await refusal(client, settings, weight, tier, user, ip) : null);
       const { rows } = await client.query(
         `INSERT INTO "AiUsage" (user_id, ip_address, feature, tier, weight, blocked, reason)
          VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
@@ -272,8 +355,8 @@ export async function aiRateLimit(request: Request | null, feature: RateLimitedF
     });
     pruneOldUsage();
   } catch (error) {
-    console.error(`AI rate limit check failed for ${feature}; allowing the call:`, error);
-    return { response: null, refund: noRefund, track: untracked };
+    console.error(`AI rate limit check failed for ${feature}; refusing the call:`, error);
+    return refuse('AI features are unavailable right now. Please try again in a minute.', 503);
   }
 
   if (!decision.refusal) {
@@ -326,7 +409,11 @@ function refusalMessage(refused: Refusal, tier: LimitTier) {
   const period = PERIOD_ADJECTIVES[refused.rule?.period ?? 'day'];
 
   const parts: string[] = [];
-  if (refused.reason === 'blocked') {
+  if (refused.reason === 'safety') {
+    parts.push(`You’ve made too many AI requests. Try again ${when ?? 'later'}.`);
+  } else if (refused.reason === 'siteLimit') {
+    parts.push('TalkNinja’s AI features are at capacity for today. Please try again later.');
+  } else if (refused.reason === 'blocked') {
     parts.push('AI features have been turned off for your account. Contact support if you think this is a mistake.');
   } else if (refused.reason === 'burst') {
     parts.push(`You’re using the AI features faster than allowed. Try again ${when ?? 'shortly'}.`);

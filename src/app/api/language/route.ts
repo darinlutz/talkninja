@@ -4,6 +4,7 @@ import { aiErrorResponse } from '@/lib/aiErrors';
 import { getRandomSentence, type Difficulty } from '@/lib/language';
 import { isValidTestDifficulty, MIN_READING_TEST_DIFFICULTY } from '@/lib/readingTest';
 import { checkPracticeAccess } from '@/lib/practiceAccess';
+import { AI_INPUT_LIMITS, latestStrings } from '@/lib/aiInputLimits';
 
 export async function POST(request: Request) {
   // Paid subscribers and Admins only (see practiceAccess.ts)
@@ -19,8 +20,9 @@ export async function POST(request: Request) {
     const complexity: Difficulty = isValidTestDifficulty(requestedComplexity)
       ? requestedComplexity
       : MIN_READING_TEST_DIFFICULTY;
-    const usedWords: string[] = Array.isArray(body.usedWords) ? body.usedWords : [];
-    const usedSentences: string[] = Array.isArray(body.usedSentences) ? body.usedSentences : [];
+    // Only the latest ones, so the prompt stays small however many the page has shown
+    const usedWords = latestStrings(body.usedWords, AI_INPUT_LIMITS.usedWords);
+    const usedSentences = latestStrings(body.usedSentences, AI_INPUT_LIMITS.usedSentences);
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {

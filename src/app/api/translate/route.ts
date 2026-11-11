@@ -4,6 +4,7 @@ import { aiErrorResponse } from '@/lib/aiErrors';
 import { translateText, type Language } from '@/lib/translate';
 import { LANGUAGES } from '@/lib/languages';
 import { checkPracticeAccess } from '@/lib/practiceAccess';
+import { AI_INPUT_LIMITS, tooLongMessage } from '@/lib/aiInputLimits';
 
 const VALID_LANGUAGES: readonly Language[] = LANGUAGES;
 
@@ -25,6 +26,9 @@ export async function POST(request: Request) {
         { error: 'Missing text to translate' },
         { status: 400 }
       );
+    }
+    if (text.length > AI_INPUT_LIMITS.translateText) {
+      return NextResponse.json({ error: tooLongMessage('Text to translate', AI_INPUT_LIMITS.translateText) }, { status: 400 });
     }
 
     const apiKey = process.env.OPENAI_API_KEY;

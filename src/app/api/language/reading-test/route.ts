@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     }
 
     const avoid = Array.isArray(body.avoid)
-      ? body.avoid.filter((s: unknown): s is string => typeof s === 'string').slice(-20)
+      ? body.avoid.filter((s: unknown): s is string => typeof s === 'string').slice(-20).map((s: string) => s.slice(0, 500))
       : [];
 
     // Signed-in users' Account page instructions weight what's picked

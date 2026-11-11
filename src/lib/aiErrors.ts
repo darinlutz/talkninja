@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { AI_STOPPED_MESSAGE, AiServicesStoppedError } from './aiKillSwitch';
 
 // Error responses for API routes that call OpenAI. Server-only.
 
@@ -26,6 +27,9 @@ export function isAiOutOfCredits(error: unknown): boolean {
 // The JSON error response for a failed AI call: the out-of-credits message
 // (503) when that's the cause, otherwise `fallback` (500)
 export function aiErrorResponse(error: unknown, fallback: string) {
+  if (error instanceof AiServicesStoppedError) {
+    return NextResponse.json({ error: AI_STOPPED_MESSAGE }, { status: 503 });
+  }
   if (isAiOutOfCredits(error)) {
     return NextResponse.json({ error: AI_OUT_OF_CREDITS_MESSAGE }, { status: 503 });
   }

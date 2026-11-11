@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server';
 import { aiErrorResponse } from '@/lib/aiErrors';
 import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
 import { checkPracticeAccess } from '@/lib/practiceAccess';
+import { AI_INPUT_LIMITS, tooLongMessage } from '@/lib/aiInputLimits';
+import { assertAiServicesOn } from '@/lib/aiKillSwitch';
+
+// OpenAI's text to speech voices; anything else gets the default
+const VOICES = ['alloy', 'ash', 'ballad', 'coral', 'echo', 'fable', 'nova', 'onyx', 'sage', 'shimmer', 'verse', 'marin', 'cedar'];
 
 export async function POST(request: Request) {
   // Paid subscribers and Admins only (see practiceAccess.ts)
@@ -13,13 +18,16 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const text = body.text;
-    const voice = typeof body.voice === 'string' && body.voice ? body.voice : 'alloy';
+    const voice = VOICES.includes(body.voice) ? body.voice : 'alloy';
 
     if (!text || typeof text !== 'string') {
       return NextResponse.json(
         { error: 'Missing text to speak' },
         { status: 400 }
       );
+    }
+    if (text.length > AI_INPUT_LIMITS.speechText) {
+      return NextResponse.json({ error: tooLongMessage('Text to speak', AI_INPUT_LIMITS.speechText) }, { status: 400 });
     }
 
     const apiKey = process.env.OPENAI_API_KEY;
@@ -35,6 +43,7 @@ export async function POST(request: Request) {
     if (limit.response) return limit.response;
 
     // Text to speech has no tokens to record, but runs in track() like every AI call
+    await assertAiServicesOn();
     const res = await limit.track(() => fetch('https://api.openai.com/v1/audio/speech', {
       method: 'POST',
       headers: {

@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import AiKillSwitch from '@/components/AiKillSwitch';
 import AiModelCostTable from '@/components/AiModelCostTable';
 import AiModelManager from '@/components/AiModelManager';
 import RateLimitManager from '@/components/RateLimitManager';
@@ -6,13 +7,14 @@ import UserRoleManager from '@/components/UserRoleManager';
 import RetentionRunsCard from '@/components/RetentionRunsCard';
 import { listRetentionRuns } from '@/lib/retention';
 import { allRetentionDays, RETENTION_KEYS, RETENTION_RULES } from '@/lib/retentionRules';
+import { getAiServicesStatus } from '@/lib/aiKillSwitch';
 import { availableAiModels, getAiModels } from '@/lib/aiModels';
-import { getRateLimitSettings, listOverrides, readAverageCallTokens } from '@/lib/rateLimits';
+import { getRateLimitSettings, listOverrides, readAverageCallTokens, safetyLimits } from '@/lib/rateLimits';
 import { isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
 import { listUsersForAdmin } from '@/lib/users';
 
-// The site owner's Admin page: AI Model Control (src/components/AiModelManager.tsx), AI Model Costs
+// The site owner's Admin page: Emergency AI Stop with the safety ceilings (src/components/AiKillSwitch.tsx), AI Model Control (src/components/AiModelManager.tsx), AI Model Costs
 // (src/components/AiModelCostTable.tsx), Rate Limiting with the AI usage report (src/components/RateLimitManager.tsx)
 // User Roles (src/components/UserRoleManager.tsx) and Data Retention (src/components/RetentionRunsCard.tsx). Only for the Admin role, read from the database with the
 // session; anyone else, signed in or not, gets a plain 404, so the page's existence isn't advertised.
@@ -20,7 +22,8 @@ export default async function AdminPage() {
   const user = await getCurrentUser();
   if (!user || !isAdmin(user.role)) notFound();
 
-  const [models, rateLimits, overrides, users, measured, retentionRuns] = await Promise.all([
+  const [aiServices, models, rateLimits, overrides, users, measured, retentionRuns] = await Promise.all([
+    getAiServicesStatus(),
     getAiModels(),
     getRateLimitSettings(),
     listOverrides(),
@@ -42,6 +45,7 @@ export default async function AdminPage() {
         <h1 className="text-3xl font-bold bg-gradient-to-r from-powder-600 via-powder-500 to-powder-600 bg-clip-text text-transparent">
           Admin
         </h1>
+        <AiKillSwitch status={aiServices} safetyLimits={safetyLimits()} />
         <AiModelManager models={models} availableModels={available} />
         <AiModelCostTable measured={measured} availableModels={available} />
         <RateLimitManager settings={rateLimits} overrides={overrides} users={users} />

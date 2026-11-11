@@ -44,3 +44,27 @@ export async function notifyAdmin(event: AdminEvent, userEmail: string): Promise
     console.error(`Admin "${event}" email failed:`, error);
   }
 }
+
+// Emails the site owner a warning (e.g. the AI site-wide daily cap was reached, src/lib/rateLimits.ts). Never throws
+export async function notifyAdminAlert(subject: string, text: string): Promise<void> {
+  const resendApiKey = process.env.RESEND_API_KEY;
+  if (!resendApiKey) {
+    console.error(`Resend API key not configured. Admin alert "${subject}" not sent.`);
+    return;
+  }
+  try {
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendApiKey}` },
+      body: JSON.stringify({
+        from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+        to: ADMIN_EMAIL,
+        subject: `${APP_NAME} alert: ${subject}`,
+        text,
+      }),
+    });
+    if (!response.ok) console.error(`Resend API error sending admin alert "${subject}":`, await response.json().catch(() => ({})));
+  } catch (error) {
+    console.error(`Admin alert "${subject}" failed:`, error);
+  }
+}
