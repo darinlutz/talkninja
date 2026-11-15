@@ -8,6 +8,8 @@ import { notifyAdmin } from '@/lib/adminNotification';
 import { acceptsCurrentTerms, MINIMUM_AGE } from '@/lib/policyVersions';
 import { linkConsentToUser } from '@/lib/cookieConsentRecords';
 import { getConsentBrowserId } from '@/lib/cookieConsentServer';
+import { sendVerificationEmail } from '@/lib/emailVerification';
+import { getPublicSiteUrl } from '@/lib/siteOrigin';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -60,6 +62,13 @@ export async function POST(request: Request) {
     // Cookie choices this browser made before signing up now belong to the account (for access/deletion requests)
     const browserId = await getConsentBrowserId();
     if (browserId) await linkConsentToUser(browserId, user.id).catch(() => {});
+    // The address isn't confirmed yet: subscribing and AI features wait for the emailed link
+    // (src/lib/emailVerification.ts). A failed send isn't the signup's failure; the banner's Resend Link sends another
+    try {
+      await sendVerificationEmail(user, getPublicSiteUrl(request));
+    } catch (error) {
+      console.error('Verification email error:', error);
+    }
     await notifyAdmin('signup', user.emailAddress);
     return NextResponse.json({ user: { userName: user.userName } }, { status: 201 });
   } catch (error) {

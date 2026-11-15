@@ -25,6 +25,7 @@ emails keep going to the owner's Yahoo inbox.
 | Vocabulary sheet ID | `vocab_sheet` cookie | Training from user's sheet | Contract | Google (Sheets API) | 1 year | Disconnect / cookie expiry |
 | Sessions (hashed token, expiry) | `"Sessions"` | Security | Contract | — | 7 days after expiry | Retention job; cascade |
 | Password reset tokens (hashed) | `"PasswordResets"` | Security | Contract | Resend (link in email) | 7 days after expiry (links last 1 h) | Retention job; cascade |
+| Email confirmation tokens (hashed); when the address was confirmed | `"EmailVerifications"`; `"Users".email_verified_at` | Security (prove the address before subscribing or using AI) | Contract | Resend (link in email) | Tokens 7 days after expiry (links last 3 days); date for the account's life | Retention job (`expiredPasswordResets` step); cascade |
 | AI usage (feature, model, tokens, time, user ID or IP) | `"AiUsage"` (no FK) | Fair-use limits, cost, abuse | Legitimate interests | — | 400 days; IP removed at 90 days; user ID removed at deletion | Retention job; deletion unlinks |
 | Cancellation reason, notes, name, email | `"CancellationReason"` (FK SET NULL) | Product improvement | Legitimate interests | Yahoo (owner notice) | Name/email/notes removed at 2 years; reason kept | Retention job |
 | Terms acceptances | `"PolicyAcceptances"` | Contract evidence | Legitimate interests | — | Account lifetime | Cascade |
@@ -143,7 +144,7 @@ below its minimum. Enforced daily by `src/lib/retentionJob.ts`.
 | Data | Period | Storage | Mechanism | Env var |
 | --- | --- | --- | --- | --- |
 | Expired sessions | 7 days after expiry | `"Sessions"` | Delete | `RETENTION_EXPIRED_SESSIONS_DAYS` |
-| Expired reset links | 7 days after expiry | `"PasswordResets"` | Delete | `RETENTION_EXPIRED_PASSWORD_RESETS_DAYS` |
+| Expired reset and email confirmation links | 7 days after expiry | `"PasswordResets"`, `"EmailVerifications"` | Delete | `RETENTION_EXPIRED_PASSWORD_RESETS_DAYS` |
 | AI usage IP addresses | 90 days | `"AiUsage"` | Set NULL | `RETENTION_AI_USAGE_IP_DAYS` (min 35) |
 | AI usage rows | 400 days | `"AiUsage"` | Delete | `RETENTION_AI_USAGE_DAYS` |
 | AI usage of deleted accounts | At deletion (+ daily orphan sweep) | `"AiUsage"` | user_id NULL | — |

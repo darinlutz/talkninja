@@ -5,6 +5,7 @@ import PageTranslator from "@/components/PageTranslator";
 import RateLimitDialog from "@/components/RateLimitDialog";
 import CookieConsentProvider from "@/components/CookieConsentProvider";
 import PolicyUpdateNotice from "@/components/PolicyUpdateNotice";
+import EmailVerificationNotice from "@/components/EmailVerificationNotice";
 import SiteFooter from "@/components/SiteFooter";
 import { getConsentState } from "@/lib/cookieConsentServer";
 import { getTermsStatus } from "@/lib/policyAcceptances";
@@ -75,6 +76,7 @@ export default async function RootLayout({
             }
           />
           <main className="flex-1 pt-16">
+            {user && !user.emailVerified && <EmailVerificationNotice email={user.emailAddress} />}
             {terms && !terms.acceptedCurrentTerms && <PolicyUpdateNotice needsAgeConfirmation={!terms.ageConfirmed} />}
             {children}
           </main>

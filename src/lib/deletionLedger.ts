@@ -8,7 +8,7 @@
 //   2. Unlinks the account's "AiUsage" rows (user_id = NULL), which have no foreign key; they stay, anonymous, until
 //      their own retention period ends.
 //   3. Deletes the "Users" row. Every table that belongs to the user references it ON DELETE CASCADE ("Sessions",
-//      "PasswordResets", "UserLanguageProgress", "LanguageActivity", "CustomAgentInstructions",
+//      "PasswordResets", "EmailVerifications", "UserLanguageProgress", "LanguageActivity", "CustomAgentInstructions",
 //      "RateLimitOverrides", "PolicyAcceptances"), so those rows go with it. "CookieConsents" and
 //      "CancellationReason" are ON DELETE SET NULL: kept as evidence and for statistics, purged by the retention job.
 // Admin accounts are never deleted (there must always be an Admin): the delete matches no row and the transaction

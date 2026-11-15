@@ -1,6 +1,7 @@
 {
   "permissions": {
     "allow": [
+      "Bash",
       "Bash(brew list *)",
       "Read(//opt/homebrew/Cellar/**)",
       "Read(//opt/homebrew/**)",
@@ -16,7 +17,10 @@
       "Bash(SCALE_BLE_ADDRESS=D0:4D:00:1C:5F:4E .venv/bin/python src/app/scaleVeSync.py)",
       "Bash(cat)",
       "Bash(/Users/darinlutz/Desktop/Clarivex/clarivex-website/.venv/bin/python /tmp/scan.py)",
-      "Bash(SCALE_BLE_ADDRESS=9BF8B32D-6A1B-C276-0872-FE19536AEB0F .venv/bin/python src/app/scaleVeSync.py)"
+      "Bash(SCALE_BLE_ADDRESS=9BF8B32D-6A1B-C276-0872-FE19536AEB0F .venv/bin/python src/app/scaleVeSync.py)",
+      "Bash(ls -d /Users/darinlutz/Desktop/*/ /Users/darinlutz/Desktop/Clarivex/*/ /Users/darinlutz/*/ 2>/dev/null | grep -i -E \"rac|coach\"; find /Users/darinlutz -maxdepth 4 -iname \"*racingcoach*\" -not -path \"*/Library/*\" -not -path \"*/node_modules/*\" 2>/dev/null | head)",
+      "Read(//Users/darinlutz/Desktop/**)",
+      "Read(//Users/darinlutz/**)"
     ]
   }
 }

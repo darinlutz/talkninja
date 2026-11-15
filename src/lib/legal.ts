@@ -44,6 +44,8 @@ export const GOVERNING_LAW = 'the Commonwealth of Kentucky, United States';
 const SITE = 'https://talkninja.app';
 
 const EFFECTIVE = 'November 3, 2026';
+// The Privacy Policy was updated on its own (email address confirmation links)
+const PRIVACY_EFFECTIVE = 'November 13, 2026';
 
 const contactBlock: LegalBlock = {
   contact: [
@@ -274,7 +276,7 @@ export const SERVICE_PROVIDERS: { name: string; service: string; data: string; l
   },
   {
     name: 'Resend',
-    service: 'Sending email (password resets, account notices)',
+    service: 'Sending email (account activation, password resets, account notices)',
     data: 'Email address, name, message content',
     location: 'United States',
     policy: 'https://resend.com/legal/privacy-policy',
@@ -304,7 +306,7 @@ export const SERVICE_PROVIDERS: { name: string; service: string; data: string; l
 
 const retentionRows: string[][] = [
   ['Account details, belts, test results, custom instructions, Terms acceptances', 'Until you delete your account'],
-  ['Sign-in sessions and password reset links', `Deleted ${days(RETENTION_RULES.expiredSessions.days)} after they expire (sessions last up to 30 days; reset links 1 hour)`],
+  ['Sign-in sessions, password reset links and email confirmation links', `Deleted ${days(RETENTION_RULES.expiredSessions.days)} after they expire (sessions last up to 30 days; reset links 1 hour; confirmation links 3 days)`],
   ['AI usage records (feature, model, amount used, time)', `${days(RETENTION_RULES.aiUsageRows.days)}; the IP address in them is removed after ${days(RETENTION_RULES.aiUsageIp.days)}, and your account ID when you delete your account`],
   ['Cancellation reasons', `Your name, email address and notes are removed ${days(RETENTION_RULES.cancellationContact.days)} after you cancel; the reason itself is kept for statistics`],
   ['Cookie choice records', `${days(RETENTION_RULES.consentRecords.days)}`],
@@ -318,8 +320,8 @@ const retentionRows: string[][] = [
 
 export const privacyPolicy: LegalDocumentContent = {
   title: 'TalkNinja Privacy Policy',
-  effectiveDate: EFFECTIVE,
-  lastUpdated: EFFECTIVE,
+  effectiveDate: PRIVACY_EFFECTIVE,
+  lastUpdated: PRIVACY_EFFECTIVE,
   intro: [
     `This Privacy Policy explains how ${BUSINESS_OPERATOR} ("TalkNinja," "we," "our," or "us") collects, uses, shares and protects personal information when you use ${SITE} (the "Services"), and the choices and rights you have.`,
     `${BUSINESS_OPERATOR} is the controller of your personal information. Contact details are in Section 13.`,
@@ -345,7 +347,7 @@ export const privacyPolicy: LegalDocumentContent = {
           list: [
             'Learning progress: your belt in each language, your next step, and each completed Training and test with its score, level and date.',
             'AI usage records: for each use of an AI feature, the feature, the model used, the amount of processing (tokens), whether it succeeded, the time, and your account ID or, if you are not signed in, your IP address. We use these to apply fair-use limits and to manage costs.',
-            'Security information: sign-in sessions (a hashed token and expiry time) and password reset links.',
+            'Security information: sign-in sessions (a hashed token and expiry time), password reset links, email address confirmation links, and when you confirmed your email address.',
             'Server logs kept by our host, which record requests and errors (including IP addresses).',
           ],
         },

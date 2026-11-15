@@ -329,6 +329,9 @@ export async function aiRateLimit(request: Request | null, feature: RateLimitedF
 
   // No AI without an account, whatever the route checked
   if (!user) return refuse('Please log in to use AI features', 401);
+  // An account whose email address isn't confirmed gets no AI: otherwise anyone could make accounts with addresses
+  // they don't own (src/lib/emailVerification.ts)
+  if (!user.emailVerified) return refuse('Confirm your email address to use AI features. We emailed you a link.', 403);
 
   if (!(await aiServicesOn())) {
     console.log(`AI emergency stop: ${feature} refused for user ${user.id}`);

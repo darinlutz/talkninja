@@ -23,8 +23,11 @@ export const RETENTION_STEPS: Step[] = [
   {
     name: 'expiredPasswordResets',
     run: async (c, now, d) =>
-      (await c.query('DELETE FROM "PasswordResets" WHERE expires_at < $1', [cutoff(now.getTime(), d.expiredPasswordResets)]))
-        .rowCount ?? 0,
+      // Email confirmation links (src/lib/emailVerification.ts) are kept as long as reset links
+      ((await c.query('DELETE FROM "PasswordResets" WHERE expires_at < $1', [cutoff(now.getTime(), d.expiredPasswordResets)]))
+        .rowCount ?? 0) +
+      ((await c.query('DELETE FROM "EmailVerifications" WHERE expires_at < $1', [cutoff(now.getTime(), d.expiredPasswordResets)]))
+        .rowCount ?? 0),
   },
   {
     name: 'aiUsageIp',

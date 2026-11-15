@@ -29,7 +29,7 @@ export const RETENTION_RULES = {
     days: 7,
     minDays: 0,
     env: 'RETENTION_EXPIRED_PASSWORD_RESETS_DAYS',
-    description: 'Password reset links, deleted this many days after they expire',
+    description: 'Password reset and email confirmation links, deleted this many days after they expire',
   },
   // IP addresses are only needed for the AI limits of visitors who aren't signed in (windows of a month at most)
   // and for abuse investigation

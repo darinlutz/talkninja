@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import CancelSubscriptionButton from '@/components/CancelSubscriptionButton';
 import ChangePasswordButton from '@/components/ChangePasswordButton';
 import PrivacyDataSection from '@/components/PrivacyDataSection';
+import EmailVerificationNotice from '@/components/EmailVerificationNotice';
 import MyAiUsageCard from '@/components/MyAiUsageCard';
 import { readOwnAiUsage } from '@/lib/rateLimits';
 import { isAdmin } from '@/lib/roles';
@@ -37,9 +38,18 @@ function formatDate(iso: string | null): string {
   return new Date(iso).toLocaleDateString('en-US', { dateStyle: 'long' });
 }
 
-export default async function AccountPage() {
+export default async function AccountPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+  const params = await searchParams;
+  // Arrived from the email's confirmation link (GET /api/auth/verify-email)
+  const justVerified = params.emailVerified === '1' && user.emailVerified;
+  // Sent back by checkout: subscribing waits for the confirmation link
+  const mustVerify = params.verifyEmail === '1' && !user.emailVerified;
   const [belts, customInstructions, aiUsage] = await Promise.all([
     getLanguageProgress(user.id),
     getCustomAgentInstructions(user.id),
@@ -48,8 +58,15 @@ export default async function AccountPage() {
   const isSubscribed = user.accountStatus === ACCOUNT_STATUS.subscribed;
 
   return (
+    <>
+    {justVerified && <EmailVerificationNotice email={user.emailAddress} verified />}
     <section className="py-12 px-4 bg-gradient-to-b from-slate-100 to-white flex justify-center">
       <div className="w-full max-w-lg space-y-6">
+        {mustVerify && (
+          <p role="alert" className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+            Confirm your email address before subscribing. Open the link we emailed you, or use Resend Link above.
+          </p>
+        )}
         <h1 className="text-3xl font-bold bg-gradient-to-r from-powder-600 via-powder-500 to-powder-600 bg-clip-text text-transparent">
           My Account
         </h1>
@@ -185,5 +202,6 @@ export default async function AccountPage() {
         <PrivacyDataSection isSubscribed={isSubscribed} canDelete={!isAdmin(user.role)} />
       </div>
     </section>
+    </>
   );
 }

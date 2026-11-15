@@ -25,10 +25,13 @@ export type User = {
   // comboboxes; null until the user picks one
   activeLearningLanguage: Language | null;
   nativeLanguage: Language | null;
+  // Whether the account's email address has been confirmed (src/lib/emailVerification.ts). Subscribing and AI
+  // features wait for it.
+  emailVerified: boolean;
 };
 
 const USER_COLUMNS =
-  'id, user_name, email_address, account_status, signup_date, subscription_end_date, stripe_subscription_id, role, active_learning_language, native_language';
+  'id, user_name, email_address, account_status, signup_date, subscription_end_date, stripe_subscription_id, role, active_learning_language, native_language, email_verified_at';
 
 // Dates are stored as ISO 8601 UTC strings, so they compare correctly as text.
 // `months` months from `from`, clamped so Jan 31 becomes Feb 28/29 rather
@@ -203,6 +206,26 @@ export function ensureUserSchema(): Promise<void> {
         expires_at BIGINT NOT NULL
       )`);
       await client.query('CREATE INDEX IF NOT EXISTS password_resets_user_id_idx ON "PasswordResets" (user_id)');
+      // When the account's email address was confirmed (src/lib/emailVerification.ts), NULL until then. Accounts from
+      // before confirmation existed get the time the column was added (its default, dropped straight after), so only
+      // new accounts have to confirm.
+      await client.query(`DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+          WHERE table_schema = current_schema() AND table_name = 'Users' AND column_name = 'email_verified_at') THEN
+          ALTER TABLE "Users" ADD COLUMN email_verified_at TIMESTAMPTZ DEFAULT now();
+          ALTER TABLE "Users" ALTER COLUMN email_verified_at DROP DEFAULT;
+        END IF;
+      END $$`);
+      // The link emailed to a new account (only its hash), like "PasswordResets"
+      await client.query(`CREATE TABLE IF NOT EXISTS "EmailVerifications" (
+        token_hash TEXT PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES "Users"(id) ON DELETE CASCADE,
+        expires_at BIGINT NOT NULL
+      )`);
+      await client.query(
+        'CREATE INDEX IF NOT EXISTS email_verifications_user_id_idx ON "EmailVerifications" (user_id)'
+      );
       // What a user wants their training to focus on (the Account page's
       // "Customize Training Experience"), which the word picker agent weights
       // its choices toward. No row means no custom instructions.
@@ -343,6 +366,7 @@ function rowToUser(row: Record<string, unknown>): User {
     signupDate: (row.signup_date as string | null) ?? null,
     subscriptionEndDate: (row.subscription_end_date as string | null) ?? null,
     stripeSubscriptionId: (row.stripe_subscription_id as string | null) ?? null,
+    emailVerified: row.email_verified_at != null,
   };
 }
 
@@ -392,6 +416,21 @@ export async function createUser(input: {
     }
     throw error;
   }
+}
+
+// Records that the account's email address is confirmed (its emailed link, or a password reset link, was opened).
+// Returns the account, or null when it no longer exists.
+export async function markEmailVerified(userId: number): Promise<User | null> {
+  await ensureUserSchema();
+  return transaction(async (client) => {
+    const { rows } = await client.query(
+      `UPDATE "Users" SET email_verified_at = COALESCE(email_verified_at, now()) WHERE id = $1 RETURNING ${USER_COLUMNS}`,
+      [userId]
+    );
+    if (!rows[0]) return null;
+    await client.query('DELETE FROM "EmailVerifications" WHERE user_id = $1', [userId]);
+    return rowToUser(rows[0]);
+  });
 }
 
 // Records a successful sign-in (Users.last_login_at). Never fails the sign-in.

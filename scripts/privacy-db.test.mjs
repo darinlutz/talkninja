@@ -64,6 +64,7 @@ async function fillUserData(userId, label) {
   const q = db.query;
   await q(`INSERT INTO "Sessions" (token_hash, user_id, expires_at) VALUES ($1, $2, $3)`, [`tok-${label}-${userId}`, userId, Date.now() + DAY]);
   await q(`INSERT INTO "PasswordResets" (token_hash, user_id, expires_at) VALUES ($1, $2, $3)`, [`rst-${label}-${userId}`, userId, Date.now() + DAY]);
+  await q(`INSERT INTO "EmailVerifications" (token_hash, user_id, expires_at) VALUES ($1, $2, $3)`, [`ver-${label}-${userId}`, userId, Date.now() + DAY]);
   await q(`INSERT INTO "UserLanguageProgress" (user_id, language, belt_level) VALUES ($1, 'Spanish', 2)`, [userId]);
   await q(
     `INSERT INTO "LanguageActivity" (user_id, language, level, activity, score, passed, was_next_step) VALUES ($1, 'Spanish', 2, 'reading', 90, true, true)`,
@@ -87,7 +88,7 @@ async function fillUserData(userId, label) {
 }
 
 async function countFor(userId) {
-  const tables = ['Sessions', 'PasswordResets', 'UserLanguageProgress', 'LanguageActivity', 'CustomAgentInstructions', 'PolicyAcceptances', 'RateLimitOverrides', 'AiUsage', 'CookieConsents', 'CancellationReason'];
+  const tables = ['Sessions', 'PasswordResets', 'EmailVerifications', 'UserLanguageProgress', 'LanguageActivity', 'CustomAgentInstructions', 'PolicyAcceptances', 'RateLimitOverrides', 'AiUsage', 'CookieConsents', 'CancellationReason'];
   const out = {};
   for (const t of tables) out[t] = Number((await db.query(`SELECT count(*) FROM "${t}" WHERE user_id = $1`, [userId]))[0].count);
   return out;
@@ -114,6 +115,58 @@ describe('signup and Terms acceptance', { skip }, () => {
     assert.deepEqual(await policies.getTermsStatus(user.id), { acceptedCurrentTerms: true, ageConfirmed: true });
     const [{ count }] = await db.query(`SELECT count(*) FROM "PolicyAcceptances" WHERE user_id = $1 AND source = 'website'`, [user.id]);
     assert.equal(Number(count), 2);
+  });
+});
+
+describe('email address confirmation', { skip }, () => {
+  test('a new account is unconfirmed until its link is opened, and the link works once', async () => {
+    const verification = await import('../src/lib/emailVerification.ts');
+    const user = await makeUser();
+    assert.equal(user.emailVerified, false);
+    const first = await verification.createEmailVerificationToken(user.id);
+    const token = await verification.createEmailVerificationToken(user.id);
+    assert.equal(await verification.verifyEmailToken(first), null, 'a newer link replaces the earlier one');
+    assert.equal(await verification.verifyEmailToken('not-a-token'), null);
+    assert.equal((await users.getUserById(user.id)).emailVerified, false);
+    const confirmed = await verification.verifyEmailToken(token);
+    assert.equal(confirmed.id, user.id);
+    assert.equal(confirmed.emailVerified, true);
+    assert.equal(await verification.verifyEmailToken(token), null, 'used links stop working');
+  });
+
+  test('an expired link is refused', async () => {
+    const verification = await import('../src/lib/emailVerification.ts');
+    const user = await makeUser();
+    const token = await verification.createEmailVerificationToken(user.id);
+    await db.query('UPDATE "EmailVerifications" SET expires_at = $1 WHERE user_id = $2', [Date.now() - 1000, user.id]);
+    assert.equal(await verification.verifyEmailToken(token), null);
+    assert.equal((await users.getUserById(user.id)).emailVerified, false);
+  });
+
+  test('resetting the password through the emailed link confirms the address too', async () => {
+    const resets = await import('../src/lib/passwordReset.ts');
+    const user = await makeUser();
+    const token = await resets.createPasswordResetToken(user.id);
+    assert.equal(await resets.resetPasswordWithToken(token, 'a brand new password'), true);
+    assert.equal((await users.getUserById(user.id)).emailVerified, true);
+    assert.ok(await users.authenticateUser(user.emailAddress, 'a brand new password'));
+    assert.equal(await resets.resetPasswordWithToken(token, 'another password'), false, 'used links stop working');
+  });
+
+  test('accounts from before confirmation existed count as confirmed', async () => {
+    const user = await makeUser();
+    // As the database was before this feature: no column, no table
+    await db.query('DROP TABLE "EmailVerifications"');
+    await db.query('ALTER TABLE "Users" DROP COLUMN email_verified_at');
+    await globalThis.pgPool.end();
+    globalThis.pgPool = undefined;
+    const fresh = await import('../src/lib/users.ts?migrate');
+    await fresh.ensureUserSchema();
+    assert.equal((await fresh.getUserById(user.id)).emailVerified, true);
+    assert.equal((await fresh.createUser({
+      userName: 'After', emailAddress: `after-${Date.now()}@example.test`, password: 'correct horse battery',
+      nativeLanguage: 'English', activeLearningLanguage: 'Spanish',
+    })).emailVerified, false, 'the default is dropped, so new accounts still have to confirm');
   });
 });
 
@@ -223,6 +276,8 @@ describe('retention job', { skip }, () => {
     // Sessions: expired 8 days ago (delete), 6 days ago (keep), active (keep)
     await q(`INSERT INTO "Sessions" VALUES ('s-old', $1, $2), ('s-recent', $1, $3), ('s-live', $1, $4)`, [u.id, ms(ago(8)), ms(ago(6)), ms(NOW) + DAY]);
     await q(`INSERT INTO "PasswordResets" VALUES ('r-old', $1, $2), ('r-recent', $1, $3)`, [u.id, ms(ago(8)), ms(ago(1))]);
+    // Email confirmation links go with the reset links: expired 8 days ago (delete), 1 day ago (keep)
+    await q(`INSERT INTO "EmailVerifications" VALUES ('v-old', $1, $2), ('v-recent', $1, $3)`, [u.id, ms(ago(8)), ms(ago(1))]);
     // AI usage: IP 91 days (cleared), 89 days (kept); row 401 days (deleted); orphan user (unlinked)
     const ai = `INSERT INTO "AiUsage" (created_at, user_id, ip_address, feature, tier, weight, blocked) VALUES ($1, $2, $3, 'translate', 'User', 1, false)`;
     await q(ai, [ago(91), u.id, '198.51.100.1']);
@@ -243,7 +298,7 @@ describe('retention job', { skip }, () => {
     const first = await db.withClient((c) => job.runRetentionSteps(c, NOW, days));
     assert.deepEqual(first.errors, {});
     assert.equal(first.results.expiredSessions, 1);
-    assert.equal(first.results.expiredPasswordResets, 1);
+    assert.equal(first.results.expiredPasswordResets, 2, 'one reset link and one email confirmation link');
     assert.equal(first.results.aiUsageIp, 1);
     assert.equal(first.results.aiUsageRows, 1);
     assert.equal(first.results.aiUsageOrphans, 1);

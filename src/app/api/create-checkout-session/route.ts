@@ -30,6 +30,11 @@ export async function POST(request: Request) {
     if (!user) {
       return NextResponse.redirect(`${origin}/login`, 303);
     }
+    // A subscription is bought by an account whose address is confirmed (src/lib/emailVerification.ts); the Account
+    // page says how
+    if (!user.emailVerified) {
+      return NextResponse.redirect(`${origin}/account?verifyEmail=1`, 303);
+    }
     // Prevents subscribing twice
     if (!canSubscribe(user.accountStatus)) {
       return NextResponse.redirect(`${origin}/account`, 303);
