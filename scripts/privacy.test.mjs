@@ -183,8 +183,11 @@ describe('legal documents', () => {
     assert.equal(MINIMUM_AGE, 18);
   });
 
-  test('ElevenLabs, microphone recording and DeepSeek are not claimed or used', () => {
-    assert.ok(!docText(privacyPolicy).includes('ElevenLabs'));
+  test('ElevenLabs is disclosed because it is used; microphone recording and DeepSeek are not claimed or used', () => {
+    // src/lib/elevenLabs.ts sends text to speak to ElevenLabs, so the Privacy Policy must name it
+    assert.ok(FILES.some(({ text }) => text.includes('api.elevenlabs.io')));
+    assert.ok(SERVICE_PROVIDERS.some((p) => p.name === 'ElevenLabs'));
+    assert.ok(docText(privacyPolicy).includes('ElevenLabs'));
     assert.ok(docText(privacyPolicy).includes('do not record your voice'));
     assert.ok(!AI_MODELS.some((m) => m.startsWith('deepseek')));
     assert.ok(!AI_MODEL_PROVIDERS.includes('DeepSeek'));

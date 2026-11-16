@@ -1,10 +1,9 @@
-import { CalendarDays, CalendarRange, Check } from 'lucide-react';
+import { CalendarDays, Check } from 'lucide-react';
 import { canSubscribe, type Plan } from '@/lib/accountStatus';
 import type { PlanPrices } from '@/lib/planPrices';
 
-// The Pricing page's two plan cards, with each plan's Stripe price and a
-// button that starts Checkout. Both plans share one style; Annual also shows
-// how much it saves over 12 months of Monthly.
+// The Pricing page's plan card: TalkNinja's one plan, the Monthly
+// Subscription, with its Stripe price and a button that starts Checkout.
 
 const PLANS: {
   plan: Plan;
@@ -20,20 +19,12 @@ const PLANS: {
     name: 'Monthly Subscription',
     icon: <CalendarDays className="w-5 h-5" aria-hidden="true" />,
     period: '/ month',
-    description: 'One month at a time. Cancel anytime from your account.',
+    description: 'Billed monthly. Cancel anytime from your account; you keep access until the end of the month you paid for.',
     features: [
       'Training, Reading and Writing Tests for every belt',
       'Free Reading and Writing practice',
       'Translator and conversations with Friend',
     ],
-  },
-  {
-    plan: 'annual',
-    name: 'Annual Subscription',
-    icon: <CalendarRange className="w-5 h-5" aria-hidden="true" />,
-    period: '/ year',
-    description: 'A full year at a time, billed once a year. Cancel anytime from your account.',
-    features: ['Everything in Monthly', 'One payment a year'],
   },
 ];
 
@@ -49,21 +40,15 @@ export default function PricingPlans({
   const buyable = accountStatus === null || canSubscribe(accountStatus);
 
   return (
-    <div className="grid gap-6 md:grid-cols-2">
+    <div className="grid gap-6 max-w-md mx-auto">
       {PLANS.map((info) => {
         const price = prices[info.plan];
-        const discount = info.plan === 'annual' ? prices.annualDiscountPercent : null;
 
         return (
           <div
             key={info.plan}
             className="relative flex flex-col bg-slate-50 rounded-xl border border-slate-200 p-6 sm:p-8"
           >
-            {discount !== null && (
-              <span className="absolute -top-3 right-6 px-3 py-1 rounded-full text-sm font-semibold text-white bg-gradient-to-r from-powder-500 to-powder-600">
-                Save {discount}%
-              </span>
-            )}
             <h2 className="flex items-center gap-2 text-2xl font-bold text-dark-blue">
               <span className="text-powder-600">{info.icon}</span>
               {info.name}
@@ -74,11 +59,6 @@ export default function PricingPlans({
               <span className="text-4xl font-bold text-dark-blue">{price ?? '—'}</span>
               {price && <span className="text-slate-500 font-medium">{info.period}</span>}
             </p>
-            {discount !== null && (
-              <p className="mt-1 text-sm font-medium text-green-700">
-                {discount}% less than 12 months of Monthly
-              </p>
-            )}
 
             <ul className="mt-6 mb-8 space-y-3">
               {info.features.map((feature) => (

@@ -6,11 +6,15 @@ import { isAdmin } from './roles';
 export const ACCOUNT_STATUS = {
   // Signed up, never subscribed
   unsubscribed: 'Unsubscribed',
-  // A current Monthly or Annual subscription. Was 'Monthly Subscription' or
-  // 'Lifetime Subscription'; ensureUserSchema converts old rows.
+  // A live Stripe subscription (active, trialing, or a renewal Stripe is still
+  // collecting: past_due, unpaid, paused). Access itself follows the paid
+  // period (hasPracticeAccess). Was 'Monthly Subscription' or 'Lifetime
+  // Subscription'; ensureUserSchema converts old rows.
   subscribed: 'Subscribed',
-  // Subscription canceled (here, in the Stripe Dashboard, or after failed
-  // payments). Was 'Canceled'; ensureUserSchema converts old rows.
+  // Subscription ended in Stripe (a cancellation took effect, it was canceled
+  // in the Dashboard, or payments failed). A cancellation only scheduled for
+  // the end of the period stays Subscribed until then. Was 'Canceled';
+  // ensureUserSchema converts old rows.
   canceled: 'Cancelled',
   // Subscription that wasn't renewed by its end date
   expired: 'Expired',
@@ -18,10 +22,12 @@ export const ACCOUNT_STATUS = {
 
 export type AccountStatus = (typeof ACCOUNT_STATUS)[keyof typeof ACCOUNT_STATUS];
 
-export type Plan = 'monthly' | 'annual';
+// TalkNinja sells one plan: a monthly subscription (TALKNINJA_MONTHLY_PRODUCT_ID's
+// default recurring Price). There is no annual plan.
+export type Plan = 'monthly';
 
 export function isPlan(value: unknown): value is Plan {
-  return value === 'monthly' || value === 'annual';
+  return value === 'monthly';
 }
 
 // Whether an account can use My Dojo and the Language page: Admins, and
@@ -35,8 +41,8 @@ export function hasPracticeAccess(subscriptionEndDate: string | null, role: stri
   return !Number.isNaN(endsAt) && endsAt > Date.now();
 }
 
-// Either plan can be bought by anyone without a current subscription.
-// Subscribers can't buy either.
+// The plan can be bought by anyone without a live subscription. Subscribers
+// can't buy a second one (create-checkout-session also asks Stripe).
 export function canSubscribe(accountStatus: string): boolean {
   return accountStatus !== ACCOUNT_STATUS.subscribed;
 }

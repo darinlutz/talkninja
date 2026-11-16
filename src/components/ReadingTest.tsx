@@ -86,7 +86,7 @@ export default function ReadingTest({
 
     setSpeak('loading');
     try {
-      await speakText(text, voice);
+      await speakText(text, voice, learnLanguage);
       setSpeak('idle');
     } catch (error) {
       setSpeak('error');

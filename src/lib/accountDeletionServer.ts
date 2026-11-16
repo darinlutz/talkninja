@@ -2,6 +2,7 @@ import Stripe from 'stripe';
 import { ACCOUNT_STATUS } from './accountStatus';
 import { transaction } from './db';
 import { deleteAccountRows, type Queryable } from './deletionLedger';
+import { emailSiteUrl, renderEmail, sendUserEmail } from './emailLayout';
 import { ensureUserSchema, type User } from './users';
 
 // Delete My Account, server side (DELETE /api/account). The order makes partial failures safe to retry:
@@ -55,26 +56,20 @@ class AccountNotDeletableError extends Error {}
 // Tells the (former) account holder their account was deleted, so an unexpected deletion is noticed. The email
 // address is used for this one message and isn't kept.
 async function sendAccountDeletedEmail(user: User): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return;
-  try {
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
-        to: user.emailAddress,
-        subject: 'Your TalkNinja account has been deleted',
-        text:
-          `Hello ${user.userName},\n\n` +
-          'Your TalkNinja account and its learning data have been deleted, as you asked. ' +
-          'Any subscription was cancelled and you will not be charged again.\n\n' +
-          'If you did not ask for this, contact support@talkninja.app right away.\n\n' +
-          'TalkNinja',
-      }),
-    });
-    if (!response.ok) console.error(`Account deletion email failed (HTTP ${response.status})`);
-  } catch (error) {
-    console.error('Account deletion email failed:', error instanceof Error ? error.message : error);
-  }
+  const subject = 'Your TalkNinja account has been deleted';
+  const sent = await sendUserEmail(
+    user.emailAddress,
+    subject,
+    renderEmail({
+      siteUrl: emailSiteUrl(),
+      subject,
+      heading: 'Your account has been deleted',
+      intro: [
+        `Hello ${user.userName}, your TalkNinja account and its learning data have been deleted, as you asked.`,
+        'Any subscription was cancelled, and you will not be charged again.',
+      ],
+      footnote: 'If you did not ask for this, contact support@talkninja.app right away.',
+    })
+  );
+  if (!sent) console.error('Account deletion email failed');
 }

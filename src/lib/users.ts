@@ -2,7 +2,7 @@ import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { DB_SCHEMA, isUniqueViolation, query, transaction } from './db';
 import { isOwnerEmail, OWNER_EMAIL, ROLES, type Role } from './roles';
-import { ACCOUNT_STATUS, type Plan } from './accountStatus';
+import { ACCOUNT_STATUS } from './accountStatus';
 import { isLanguage, type Language } from './languages';
 import { applyPrivacySchema } from './privacyDb';
 import { POLICY_VERSIONS } from './policyVersions';
@@ -17,8 +17,18 @@ export type User = {
   emailAddress: string;
   accountStatus: string;
   signupDate: string | null;
+  // The end of the period paid for: practice is allowed until then (hasPracticeAccess)
   subscriptionEndDate: string | null;
+  stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
+  // The subscription as Stripe last said it was (src/lib/stripeBilling.ts syncSubscription): its Stripe status,
+  // when a scheduled cancellation takes effect, the current billing period's end, when it started, and an
+  // unresolved payment problem ('payment_failed' or 'action_required')
+  stripeStatus: string | null;
+  stripeCancelAt: string | null;
+  stripeCurrentPeriodEnd: string | null;
+  stripeStartedAt: string | null;
+  stripePaymentIssue: string | null;
   // Admin or User (see ROLES)
   role: string;
   // Last picked in the Language page's "want to learn" / "I speak"
@@ -31,24 +41,9 @@ export type User = {
 };
 
 const USER_COLUMNS =
-  'id, user_name, email_address, account_status, signup_date, subscription_end_date, stripe_subscription_id, role, active_learning_language, native_language, email_verified_at';
+  'id, user_name, email_address, account_status, signup_date, subscription_end_date, stripe_customer_id, stripe_subscription_id, stripe_subscription_status, stripe_cancel_at, stripe_current_period_end, stripe_subscription_started_at, stripe_payment_issue, role, active_learning_language, native_language, email_verified_at';
 
 // Dates are stored as ISO 8601 UTC strings, so they compare correctly as text.
-// `months` months from `from`, clamped so Jan 31 becomes Feb 28/29 rather
-// than Mar 3 (and Feb 29 a year on becomes Feb 28).
-function monthsFrom(months: number, from: Date = new Date()): string {
-  const end = new Date(from);
-  end.setUTCDate(1);
-  end.setUTCMonth(end.getUTCMonth() + months);
-  const lastDay = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() + 1, 0)).getUTCDate();
-  end.setUTCDate(Math.min(from.getUTCDate(), lastDay));
-  return end.toISOString();
-}
-
-// When a just-paid period of the plan ends
-export function planPeriodEnd(plan: Plan, from: Date = new Date()): string {
-  return monthsFrom(plan === 'annual' ? 12 : 1, from);
-}
 
 export class EmailTakenError extends Error {
   constructor() {
@@ -278,6 +273,49 @@ export function ensureUserSchema(): Promise<void> {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
         updated_by INTEGER REFERENCES "Users"(id) ON DELETE SET NULL
       )`);
+      // The Admin page's Voice Management (src/lib/voiceSettings.ts): one row per language an Admin changed. A null
+      // voice ID means the environment variable's (TALKNINJA_<LANGUAGE>_<MALE|FEMALE>_VOICE_ID); no row means the
+      // environment variables and the default model for everything.
+      await client.query(`CREATE TABLE IF NOT EXISTS "VoiceSettings" (
+        language TEXT PRIMARY KEY,
+        male_voice_id TEXT,
+        female_voice_id TEXT,
+        male_enabled BOOLEAN NOT NULL DEFAULT true,
+        female_enabled BOOLEAN NOT NULL DEFAULT true,
+        default_gender TEXT NOT NULL DEFAULT 'male' CHECK (default_gender IN ('male', 'female')),
+        model TEXT,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_by INTEGER REFERENCES "Users"(id) ON DELETE SET NULL
+      )`);
+      // The subscription as Stripe last said it was (src/lib/stripeBilling.ts syncSubscription), for the Account
+      // page's My Subscription and the entitlement: its Stripe status (active, past_due, canceled...), when a
+      // scheduled cancellation takes effect (null if none), the end of the current billing period, when it started,
+      // and an unresolved payment problem ('payment_failed' or 'action_required')
+      await client.query(`ALTER TABLE "Users"
+        ADD COLUMN IF NOT EXISTS stripe_subscription_status TEXT,
+        ADD COLUMN IF NOT EXISTS stripe_cancel_at TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS stripe_current_period_end TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS stripe_subscription_started_at TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS stripe_payment_issue TEXT,
+        ADD COLUMN IF NOT EXISTS stripe_synced_at TIMESTAMPTZ`);
+      await client.query(
+        'CREATE INDEX IF NOT EXISTS users_stripe_customer_id_idx ON "Users" (stripe_customer_id)'
+      );
+      // Stripe webhook events already handled (or being handled), so a repeated delivery is applied once
+      // (src/lib/stripeBilling.ts claimWebhookEvent). Event IDs and types only, no personal data; rows older than 90
+      // days are deleted as events are handled (Stripe stops retrying after 3 days).
+      await client.query(`CREATE TABLE IF NOT EXISTS "StripeWebhookEvents" (
+        event_id TEXT PRIMARY KEY,
+        event_type TEXT NOT NULL,
+        event_created TIMESTAMPTZ NOT NULL,
+        livemode BOOLEAN NOT NULL,
+        received_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        processed_at TIMESTAMPTZ,
+        result TEXT
+      )`);
+      await client.query(
+        'CREATE INDEX IF NOT EXISTS stripe_webhook_events_received_at_idx ON "StripeWebhookEvents" (received_at)'
+      );
       // One row per AI call (src/lib/rateLimits.ts aiRateLimit), allowed or
       // blocked (with the reason), with its weight against the limit and the
       // tokens its model calls used (src/lib/aiTokenUsage.ts). counted is
@@ -354,6 +392,8 @@ async function verifyPassword(password: string, stored: string): Promise<boolean
   return timingSafeEqual(actual, expected);
 }
 
+const isoOrNull = (value: unknown): string | null => (value instanceof Date ? value.toISOString() : null);
+
 function rowToUser(row: Record<string, unknown>): User {
   return {
     id: Number(row.id),
@@ -365,7 +405,13 @@ function rowToUser(row: Record<string, unknown>): User {
     nativeLanguage: isLanguage(row.native_language) ? row.native_language : null,
     signupDate: (row.signup_date as string | null) ?? null,
     subscriptionEndDate: (row.subscription_end_date as string | null) ?? null,
+    stripeCustomerId: (row.stripe_customer_id as string | null) ?? null,
     stripeSubscriptionId: (row.stripe_subscription_id as string | null) ?? null,
+    stripeStatus: (row.stripe_subscription_status as string | null) ?? null,
+    stripeCancelAt: isoOrNull(row.stripe_cancel_at),
+    stripeCurrentPeriodEnd: isoOrNull(row.stripe_current_period_end),
+    stripeStartedAt: isoOrNull(row.stripe_subscription_started_at),
+    stripePaymentIssue: (row.stripe_payment_issue as string | null) ?? null,
     emailVerified: row.email_verified_at != null,
   };
 }
@@ -497,43 +543,11 @@ export async function setLanguagePreferences(
   );
 }
 
-// Links a completed Checkout Session to the user who started it. Returns
-// the user's email when this call started the subscription, or null when an
-// earlier call already had.
-export async function startSubscription(
-  userId: number,
-  stripeCustomerId: string,
-  stripeSubscriptionId: string,
-  plan: Plan
-): Promise<string | null> {
-  await ensureUserSchema();
-  const [row] = await query(
-    // Only once per subscription: the Thank You page and the webhook both
-    // call this, and a second call mustn't restart the period
-    `UPDATE "Users" SET stripe_customer_id = $1, stripe_subscription_id = $2, account_status = $5,
-       subscription_end_date = $3
-     WHERE id = $4 AND stripe_subscription_id IS DISTINCT FROM $2
-     RETURNING email_address`,
-    [stripeCustomerId, stripeSubscriptionId, planPeriodEnd(plan), userId, ACCOUNT_STATUS.subscribed]
-  );
-  return (row?.email_address as string | undefined) ?? null;
-}
-
-// Called on each successful renewal payment, with when the period just paid
-// for ends.
-export async function renewSubscription(stripeSubscriptionId: string, periodEnd: string): Promise<void> {
-  await ensureUserSchema();
-  await query(
-    `UPDATE "Users" SET account_status = $3, subscription_end_date = $1
-     WHERE stripe_subscription_id = $2`,
-    [periodEnd, stripeSubscriptionId, ACCOUNT_STATUS.subscribed]
-  );
-}
-
-// After Stripe has cancelled a subscription from the My Account
-// page: marks the account Cancelled and saves why, together, so neither is
-// saved without the other. The subscription end date is kept, since the
-// period already paid for still runs to it.
+// After the My Account page's Cancel Subscription has scheduled the
+// cancellation in Stripe (at the end of the paid period): saves why. The
+// account stays Subscribed until Stripe ends the subscription
+// (customer.subscription.deleted makes it Cancelled), keeping the period
+// already paid for.
 export async function recordCancellation(input: {
   user: User;
   stripeSubscriptionId: string;
@@ -543,10 +557,6 @@ export async function recordCancellation(input: {
 }): Promise<void> {
   await ensureUserSchema();
   await transaction(async (client) => {
-    await client.query('UPDATE "Users" SET account_status = $1 WHERE id = $2', [
-      ACCOUNT_STATUS.canceled,
-      input.user.id,
-    ]);
     await client.query(
       `INSERT INTO "CancellationReason" (user_id, user_name, email_address, reason, notes,
          stripe_subscription_id, stripe_canceled_at, subscription_end_date)
@@ -563,17 +573,6 @@ export async function recordCancellation(input: {
       ]
     );
   });
-}
-
-export async function setStatusBySubscriptionId(
-  stripeSubscriptionId: string,
-  accountStatus: string
-): Promise<void> {
-  await ensureUserSchema();
-  await query('UPDATE "Users" SET account_status = $1 WHERE stripe_subscription_id = $2', [
-    accountStatus,
-    stripeSubscriptionId,
-  ]);
 }
 
 // Whether password is the user's current one (the Account page's Change

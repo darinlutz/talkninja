@@ -1,15 +1,18 @@
 import { NextResponse } from 'next/server';
-import Stripe from 'stripe';
 import { getCurrentUser } from '@/lib/session';
 import { recordCancellation } from '@/lib/users';
-import { ACCOUNT_STATUS } from '@/lib/accountStatus';
+import { stripeClient, syncSubscription } from '@/lib/stripeBilling';
+import { isLiveStripeStatus } from '@/lib/subscriptionProjection';
 import { notifyAdmin } from '@/lib/adminNotification';
 import { cancellationReasonLabel, MAX_CANCELLATION_NOTES_LENGTH } from '@/lib/cancellationReasons';
 
-// The My Account page's Cancel Subscription modal: cancels the
-// subscription in Stripe, marks the account Cancelled, and saves the
-// reason the user picked (and any notes) in "CancellationReason". Returns
-// Stripe's record of the cancellation as the user's proof.
+// The My Account page's Cancel Subscription modal: schedules the
+// cancellation in Stripe for the end of the period already paid for (no more
+// charges, access until then; Reactivate Subscription undoes it before then),
+// and saves the reason the user picked (and any notes) in
+// "CancellationReason". The account becomes Cancelled when Stripe ends the
+// subscription. Returns Stripe's record of the cancellation as the user's
+// proof. Only the signed-in account's own subscription, from the database.
 export async function POST(request: Request) {
   try {
     const user = await getCurrentUser();
@@ -17,8 +20,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Please log in again' }, { status: 401 });
     }
 
-    // Only subscribers have something to cancel
-    if (user.accountStatus !== ACCOUNT_STATUS.subscribed || !user.stripeSubscriptionId) {
+    // Only a live subscription has something to cancel
+    if (!user.stripeSubscriptionId || !isLiveStripeStatus(user.stripeStatus ?? 'active')) {
       return NextResponse.json({ error: 'No active subscription to cancel' }, { status: 400 });
     }
 
@@ -35,16 +38,26 @@ export async function POST(request: Request) {
       );
     }
 
-    const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-    if (!stripeSecretKey) {
+    const stripe = stripeClient();
+    if (!stripe) {
       return NextResponse.json({ error: 'Stripe is not configured' }, { status: 500 });
     }
 
-    // Cancels immediately: no further charges, no refund. The subscription
-    // end date (the end of the period already paid for) is kept.
-    const stripe = new Stripe(stripeSecretKey);
-    const subscription = await stripe.subscriptions.cancel(user.stripeSubscriptionId);
-    const canceledAt = subscription.canceled_at ? new Date(subscription.canceled_at * 1000) : new Date();
+    const current = await stripe.subscriptions.retrieve(user.stripeSubscriptionId);
+    if (current.status === 'canceled' || current.status === 'incomplete_expired') {
+      await syncSubscription(stripe, current.id);
+      return NextResponse.json({ error: 'This subscription has already ended' }, { status: 400 });
+    }
+    // At the end of the paid period: no further charges, no refund, access until then
+    const subscription = await stripe.subscriptions.update(user.stripeSubscriptionId, {
+      cancel_at_period_end: true,
+      cancellation_details: { comment: `${reason}${notes ? `: ${notes}` : ''}`.slice(0, 500) },
+    });
+    const canceledAt = new Date();
+    const sync = await syncSubscription(stripe, subscription.id);
+    if (sync.status !== 'synced') console.error(`Cancellation of ${subscription.id} not synced:`, sync);
+    const periodEnds = subscription.items.data.map((item) => item.current_period_end);
+    const endsAt = subscription.cancel_at ?? (periodEnds.length ? Math.max(...periodEnds) : null);
 
     // Stripe has cancelled it; a failure saving here mustn't hide that
     try {
@@ -68,7 +81,8 @@ export async function POST(request: Request) {
         status: subscription.status,
         canceledAt: canceledAt.toISOString(),
       },
-      subscriptionEndDate: user.subscriptionEndDate,
+      // When access ends: the end of the period already paid for
+      subscriptionEndDate: endsAt ? new Date(endsAt * 1000).toISOString() : user.subscriptionEndDate,
     });
   } catch (error) {
     console.error('Stripe cancel subscription error:', error);

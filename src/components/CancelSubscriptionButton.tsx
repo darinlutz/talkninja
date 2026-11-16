@@ -21,8 +21,8 @@ function formatDate(iso: string | null, withTime = false): string {
 
 // The My Account page's Cancel Subscription button (subscribers only).
 // Opens a modal asking why they're cancelling; "Cancel Subscription" there
-// cancels in Stripe and shows Stripe's confirmation, "Remain Subscribed"
-// just closes it.
+// schedules the cancellation in Stripe for the end of the paid period and
+// shows Stripe's confirmation; "Remain Subscribed" just closes it.
 export default function CancelSubscriptionButton() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -88,11 +88,12 @@ export default function CancelSubscriptionButton() {
             {result ? (
               <>
                 <h2 id="cancelSubscriptionTitle" className="text-xl font-bold text-dark-blue">
-                  Your subscription has been cancelled
+                  Your subscription is cancelled
                 </h2>
                 <p className="mt-2 text-slate-600">
-                  You won’t be charged again. Your subscription ends on{' '}
-                  <span className="font-semibold text-dark-blue">{formatDate(result.subscriptionEndDate)}</span>.
+                  You won’t be charged again. You keep full access until{' '}
+                  <span className="font-semibold text-dark-blue">{formatDate(result.subscriptionEndDate)}</span>, when
+                  it ends. Changed your mind? Use Reactivate Subscription on this page before then.
                 </p>
 
                 {/* Stripe's record of the cancellation, as proof */}

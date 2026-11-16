@@ -151,7 +151,7 @@ export default function WritingTest({
 
     setSpeak('loading');
     try {
-      await speakText(text, voice);
+      await speakText(text, voice, wordLanguage);
       setSpeak('idle');
     } catch (error) {
       setSpeak('error');

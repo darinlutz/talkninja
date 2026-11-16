@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import CancelSubscriptionButton from '@/components/CancelSubscriptionButton';
+import MySubscription from '@/components/MySubscription';
 import ChangePasswordButton from '@/components/ChangePasswordButton';
 import PrivacyDataSection from '@/components/PrivacyDataSection';
 import EmailVerificationNotice from '@/components/EmailVerificationNotice';
@@ -7,7 +7,10 @@ import MyAiUsageCard from '@/components/MyAiUsageCard';
 import { readOwnAiUsage } from '@/lib/rateLimits';
 import { isAdmin } from '@/lib/roles';
 import { getCurrentUser } from '@/lib/session';
-import { ACCOUNT_STATUS, canSubscribe } from '@/lib/accountStatus';
+import { ACCOUNT_STATUS } from '@/lib/accountStatus';
+import { getSubscriptionOverview } from '@/lib/stripeBilling';
+import { getPlanPrices } from '@/lib/planPrices';
+import { getUserById } from '@/lib/users';
 import { getLanguageProgress } from '@/lib/languageProgress';
 import Link from 'next/link';
 import { beltName, continueTrainingHref, describeNextStep } from '@/lib/languageLevels';
@@ -43,13 +46,18 @@ export default async function AccountPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const user = await getCurrentUser();
-  if (!user) redirect('/login');
+  const sessionUser = await getCurrentUser();
+  if (!sessionUser) redirect('/login');
   const params = await searchParams;
   // Arrived from the email's confirmation link (GET /api/auth/verify-email)
-  const justVerified = params.emailVerified === '1' && user.emailVerified;
+  const justVerified = params.emailVerified === '1' && sessionUser.emailVerified;
   // Sent back by checkout: subscribing waits for the confirmation link
-  const mustVerify = params.verifyEmail === '1' && !user.emailVerified;
+  const mustVerify = params.verifyEmail === '1' && !sessionUser.emailVerified;
+  // Read from Stripe on every visit (and the account synced with it first), so coming back from Checkout or the
+  // Customer Portal shows the change straight away
+  const [overview, prices] = await Promise.all([getSubscriptionOverview(sessionUser), getPlanPrices()]);
+  const user = (overview && (await getUserById(sessionUser.id))) || sessionUser;
+  const billing = typeof params.billing === 'string' ? params.billing : null;
   const [belts, customInstructions, aiUsage] = await Promise.all([
     getLanguageProgress(user.id),
     getCustomAgentInstructions(user.id),
@@ -96,43 +104,22 @@ export default async function AccountPage({
                 {formatDate(user.signupDate)}
               </dd>
             </div>
-            {/* When the period paid for ends: the next renewal while
-                subscribed, and when the subscription ends once it's cancelled */}
-            {(isSubscribed || (user.accountStatus === ACCOUNT_STATUS.canceled && user.subscriptionEndDate)) && (
-              <div className="flex justify-between gap-4 px-4 py-3">
-                <dt className="text-sm font-medium text-slate-500">Subscription End Date</dt>
-                <dd className="text-dark-blue font-medium text-right">
-                  {formatDate(user.subscriptionEndDate)}
-                </dd>
-              </div>
-            )}
           </dl>
 
-          {canSubscribe(user.accountStatus) && (
-            <form action="/api/create-checkout-session" method="POST" className="mt-6 space-y-3">
-              <button
-                type="submit"
-                name="plan"
-                value="monthly"
-                className="w-full px-6 py-3 rounded-lg font-semibold text-white bg-gradient-to-r from-powder-500 to-powder-600 hover:from-powder-600 hover:to-powder-500 transition-colors"
-              >
-                Monthly Subscription
-              </button>
-              <button
-                type="submit"
-                name="plan"
-                value="annual"
-                className="w-full px-6 py-3 rounded-lg font-semibold text-white bg-gradient-to-r from-powder-500 to-powder-600 hover:from-powder-600 hover:to-powder-500 transition-colors"
-              >
-                Annual Subscription
-              </button>
-            </form>
-          )}
-
-          {isSubscribed && <CancelSubscriptionButton />}
           {/* Every account has a password (there's no Google sign-in) */}
           <ChangePasswordButton />
         </div>
+
+        <MySubscription
+          accountStatus={user.accountStatus}
+          stripeStatus={user.stripeStatus}
+          stripeCustomerId={user.stripeCustomerId}
+          paymentIssue={user.stripePaymentIssue}
+          subscriptionEndDate={user.subscriptionEndDate}
+          overview={overview}
+          monthlyPrice={prices.monthly}
+          billing={billing}
+        />
 
         <div className="bg-slate-50 rounded-xl border border-slate-200 p-6 sm:p-8">
           <h2 className="text-2xl font-bold text-dark-blue mb-2">Language Setup</h2>

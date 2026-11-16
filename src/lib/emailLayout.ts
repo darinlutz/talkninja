@@ -1,10 +1,11 @@
-// The look of the emails the site sends to its users (the email address confirmation, the password reset): the
+// The look of the emails the site sends to its users (the email address confirmation, the password reset, the
+// account deletion notice): the
 // TalkNinja logo, a white card with the message and a blue button, a strip of the eight belt colors, and a footer,
 // in the site's colors (src/app/globals.css). No imports, so tests render it directly.
 //
 // Built for email apps rather than browsers: tables for layout, every style inline, no web fonts, CSS or SVG (Gmail
-// and Outlook drop them), the logo as an absolute URL on the site (public/email/talkninja-icon.png, the ninja of
-// src/app/icon.svg at 96 px) with a fixed size, the name beside it as text so it shows with images blocked, and the
+// and Outlook drop them), the logo as an absolute URL on the site (public/email/talkninja-icon.png, the shuriken
+// ninja emblem of src/assets/ninja-emblem.png at 96 px) with a fixed size, the name beside it as text so it shows with images blocked, and the
 // link written out under the button for email apps that strip buttons.
 
 const COLORS = {
@@ -21,6 +22,21 @@ const BELTS = ['#ffffff', '#22c55e', '#facc15', '#f97316', '#155dfc', '#ef4444',
 
 const FONT = "'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
+// Who every email is from: RESEND_FROM_EMAIL (on a domain verified in Resend; talkninja.app is), shown as "TalkNinja"
+// when it's a bare address, else TalkNinja's own no-reply address. Never Resend's shared onboarding address, which
+// isn't branded and only delivers to the Resend account's owner.
+export const DEFAULT_SENDER = 'TalkNinja <no-reply@talkninja.app>';
+export function emailSender(fromEnv = process.env.RESEND_FROM_EMAIL): string {
+  const from = fromEnv?.trim();
+  if (!from) return DEFAULT_SENDER;
+  return from.includes('<') ? from : `TalkNinja <${from}>`;
+}
+// Replies to the no-reply address reach support instead
+export const REPLY_TO = 'support@talkninja.app';
+
+// The site's address for an email's logo and links when no request is at hand
+export const emailSiteUrl = () => process.env.SITE_URL?.trim().replace(/\/+$/, '') || 'https://talkninja.app';
+
 export function escapeHtml(text: string): string {
   return text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 }
@@ -31,7 +47,8 @@ export type EmailContent = {
   heading: string;
   // Paragraphs before the button
   intro: string[];
-  button: { label: string; url: string };
+  // Optional: a notice (e.g. the account deletion) has no action
+  button?: { label: string; url: string };
   // Under the button: how long the link lasts
   note?: string;
   // Small print at the bottom of the card, e.g. what to do when it wasn't you
@@ -43,7 +60,7 @@ const LINK_FALLBACK = "If the button doesn't work, copy this link into your brow
 export function renderEmail(email: EmailContent): { html: string; text: string } {
   const site = email.siteUrl.replace(/\/+$/, '');
   const host = site.replace(/^https?:\/\//, '');
-  const url = escapeHtml(email.button.url);
+  const url = email.button ? escapeHtml(email.button.url) : '';
   const paragraph = (text: string) =>
     `<p style="margin:0 0 16px;font-family:${FONT};font-size:16px;line-height:24px;color:${COLORS.text};">${escapeHtml(text)}</p>`;
   const belts = BELTS.map(
@@ -90,7 +107,7 @@ export function renderEmail(email: EmailContent): { html: string; text: string }
                   ${email.intro.map(paragraph).join('\n                  ')}
                 </td>
               </tr>
-              <tr>
+              ${email.button ? `<tr>
                 <td align="left" style="padding:8px 32px 24px;">
                   <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                     <tr>
@@ -101,12 +118,12 @@ export function renderEmail(email: EmailContent): { html: string; text: string }
                     </tr>
                   </table>
                 </td>
-              </tr>
+              </tr>` : ''}
               <tr>
                 <td style="padding:0 32px 28px;">
                   ${email.note ? `<p style="margin:0 0 16px;font-family:${FONT};font-size:14px;line-height:21px;color:${COLORS.muted};">${escapeHtml(email.note)}</p>` : ''}
-                  <p style="margin:0 0 6px;font-family:${FONT};font-size:13px;line-height:19px;color:${COLORS.muted};">${LINK_FALLBACK}</p>
-                  <p style="margin:0;font-family:${FONT};font-size:13px;line-height:19px;word-break:break-all;"><a href="${url}" style="color:${COLORS.primary};text-decoration:underline;">${url}</a></p>
+                  ${email.button ? `<p style="margin:0 0 6px;font-family:${FONT};font-size:13px;line-height:19px;color:${COLORS.muted};">${LINK_FALLBACK}</p>
+                  <p style="margin:0;font-family:${FONT};font-size:13px;line-height:19px;word-break:break-all;"><a href="${url}" style="color:${COLORS.primary};text-decoration:underline;">${url}</a></p>` : ''}
                 </td>
               </tr>
               <tr>
@@ -141,8 +158,7 @@ export function renderEmail(email: EmailContent): { html: string; text: string }
     email.heading,
     '',
     ...email.intro.flatMap((p) => [p, '']),
-    `${email.button.label}: ${email.button.url}`,
-    '',
+    ...(email.button ? [`${email.button.label}: ${email.button.url}`, ''] : []),
     ...(email.note ? [email.note, ''] : []),
     email.footnote,
     '',
@@ -165,8 +181,9 @@ export async function sendUserEmail(to: string, subject: string, body: { html: s
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendApiKey}` },
       signal: AbortSignal.timeout(10_000),
       body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+        from: emailSender(),
         to,
+        reply_to: REPLY_TO,
         subject,
         text: body.text,
         html: body.html,

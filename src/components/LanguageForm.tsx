@@ -121,7 +121,7 @@ export default function LanguageForm({ wordLanguage, answerLanguage }: LanguageF
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ text: word }),
+        body: JSON.stringify({ text: word, language: wordLanguage }),
       });
       // A 429 for the AI limit opens the rate limit dialog
       void reportRateLimit(response);

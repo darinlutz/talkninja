@@ -5,7 +5,7 @@ import { getCurrentUser } from '@/lib/session';
 
 // Keeps the site-wide tab title from the root layout
 export const metadata: Metadata = {
-  description: 'TalkNinja monthly and annual subscriptions.',
+  description: 'The TalkNinja monthly subscription.',
 };
 
 export default async function PricingPage() {
@@ -23,7 +23,7 @@ export default async function PricingPage() {
 
         <PricingPlans prices={prices} accountStatus={user?.accountStatus ?? null} />
 
-        <p className="mt-8 text-center text-sm text-slate-500">Same curiosity. Two ways to keep it going.</p>
+        <p className="mt-8 text-center text-sm text-slate-500">One plan, billed monthly. Cancel anytime.</p>
       </div>
     </section>
   );

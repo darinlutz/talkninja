@@ -5,6 +5,9 @@ import AiModelManager from '@/components/AiModelManager';
 import RateLimitManager from '@/components/RateLimitManager';
 import UserRoleManager from '@/components/UserRoleManager';
 import RetentionRunsCard from '@/components/RetentionRunsCard';
+import VoiceManager from '@/components/VoiceManager';
+import { listVoiceSettingsForAdmin } from '@/lib/voiceSettings';
+import { elevenLabsApiKey } from '@/lib/elevenLabs';
 import { listRetentionRuns } from '@/lib/retention';
 import { allRetentionDays, RETENTION_KEYS, RETENTION_RULES } from '@/lib/retentionRules';
 import { getAiServicesStatus } from '@/lib/aiKillSwitch';
@@ -16,13 +19,13 @@ import { listUsersForAdmin } from '@/lib/users';
 
 // The site owner's Admin page: Emergency AI Stop with the safety ceilings (src/components/AiKillSwitch.tsx), AI Model Control (src/components/AiModelManager.tsx), AI Model Costs
 // (src/components/AiModelCostTable.tsx), Rate Limiting with the AI usage report (src/components/RateLimitManager.tsx)
-// User Roles (src/components/UserRoleManager.tsx) and Data Retention (src/components/RetentionRunsCard.tsx). Only for the Admin role, read from the database with the
+// Voice Management (src/components/VoiceManager.tsx), User Roles (src/components/UserRoleManager.tsx) and Data Retention (src/components/RetentionRunsCard.tsx). Only for the Admin role, read from the database with the
 // session; anyone else, signed in or not, gets a plain 404, so the page's existence isn't advertised.
 export default async function AdminPage() {
   const user = await getCurrentUser();
   if (!user || !isAdmin(user.role)) notFound();
 
-  const [aiServices, models, rateLimits, overrides, users, measured, retentionRuns] = await Promise.all([
+  const [aiServices, models, rateLimits, overrides, users, measured, retentionRuns, voices] = await Promise.all([
     getAiServicesStatus(),
     getAiModels(),
     getRateLimitSettings(),
@@ -30,6 +33,7 @@ export default async function AdminPage() {
     listUsersForAdmin(),
     readAverageCallTokens(),
     listRetentionRuns(10),
+    listVoiceSettingsForAdmin(),
   ]);
   const retentionDays = allRetentionDays(process.env);
   const retentionRules = RETENTION_KEYS.map((key) => ({
@@ -49,6 +53,7 @@ export default async function AdminPage() {
         <AiModelManager models={models} availableModels={available} />
         <AiModelCostTable measured={measured} availableModels={available} />
         <RateLimitManager settings={rateLimits} overrides={overrides} users={users} />
+        <VoiceManager languages={voices} elevenLabsKeySet={Boolean(elevenLabsApiKey())} />
         <UserRoleManager users={users} currentUserId={user.id} />
         <RetentionRunsCard runs={retentionRuns} rules={retentionRules} />
       </div>

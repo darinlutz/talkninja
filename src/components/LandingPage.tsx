@@ -9,6 +9,34 @@ import LearningPreview from '@/components/LearningPreview';
 import { belts } from '@/lib/landingSamples';
 import mascot from '@/assets/ninja-mascot.jpg';
 import vocabulary from '@/assets/vocabulary-sync.jpg';
+import readingWriting from '@/assets/reading-writing.jpg';
+import training from '@/assets/training.jpg';
+import testing from '@/assets/testing.jpg';
+
+// The three ways every belt is earned, each with its picture (from color-belt-lingo, 2026-11-16)
+const DISCIPLINES = [
+  {
+    img: readingWriting,
+    label: '01 / READING & WRITING',
+    title: 'Read it. Write it.',
+    text: 'Study real sentences, then write your answers and get instant feedback.',
+    alt: 'Ninja writing with a brush beside an open scroll in a lantern-lit study',
+  },
+  {
+    img: training,
+    label: '02 / TRAINING',
+    title: 'Train every day.',
+    text: 'Color-matched words and native voices build instinct, rep after rep.',
+    alt: 'Ninja in a training stance surrounded by glowing words in a night dojo',
+  },
+  {
+    img: testing,
+    label: '03 / TESTING',
+    title: 'Earn the next belt.',
+    text: 'Pass your tests and step up to a new rank when you are ready.',
+    alt: 'Student kneeling before a master as a yellow belt is presented',
+  },
+];
 
 // The home page, brought over from color-belt-lingo. Its styles are in
 // src/app/landing.css, scoped under .landing. Pricing is its own page.
@@ -56,20 +84,35 @@ export default function LandingPage() {
           <div className="hero-art">
             <Image
               src={mascot}
-              alt="Friendly blue TalkNinja character wearing a white belt and holding a vocabulary scroll"
+              alt="Hooded TalkNinja warrior in navy gear with a white belt, holding a scroll"
               loading="eager"
               fetchPriority="high"
             />
-            <div className="mascot-note">
-              <span className="belt belt-white" />
-              <div>
-                <strong>Every ninja starts somewhere.</strong>
-                <p>Your white belt is waiting.</p>
-              </div>
-            </div>
           </div>
         </div>
       </header>
+
+      <section id="disciplines" className="disciplines-section">
+        <div className="container-wide">
+          <div className="section-heading">
+            <span className="eyebrow">THE THREE DISCIPLINES</span>
+            <h2>Read. Train. Prove it.</h2>
+            <p>Every belt is earned the same way.</p>
+          </div>
+          <div className="disciplines-grid">
+            {DISCIPLINES.map((d) => (
+              <article className="discipline-card" key={d.label}>
+                <Image src={d.img} alt={d.alt} sizes="(max-width: 900px) 100vw, 33vw" />
+                <div className="discipline-body">
+                  <span className="eyebrow">{d.label}</span>
+                  <h3>{d.title}</h3>
+                  <p>{d.text}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
 
       <section id="training" className="training-section">
         <div className="container-wide">

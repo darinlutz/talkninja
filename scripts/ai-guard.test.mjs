@@ -1,7 +1,7 @@
 // AI cost guards: npm run test:ai
 //
-// Source guards that fail when an API route can reach a paid AI service (a chat model, OpenAI text to speech,
-// Tavily image search) without requiring a login and going through aiRateLimit, when a paid call can skip the
+// Source guards that fail when an API route can reach a paid AI service (a chat model, OpenAI or ElevenLabs text to
+// speech, Tavily image search) without requiring a login and going through aiRateLimit, when a paid call can skip the
 // Admin page's emergency stop (src/lib/aiKillSwitch.ts), or when the always-on safety ceilings are weakened.
 
 import { describe, test } from 'node:test';
@@ -41,8 +41,8 @@ function importsOf(file) {
 }
 
 // Modules that make paid calls themselves
-const PAID = new Set(['src/lib/aiModels.ts', 'src/lib/imageSearch.ts'].map((f) => path.join(ROOT, f)));
-const callsPaidApiDirectly = (file) => /api\.openai\.com|api\.tavily\.com|api\.anthropic\.com/.test(TEXT.get(file));
+const PAID = new Set(['src/lib/aiModels.ts', 'src/lib/imageSearch.ts', 'src/lib/speech.ts', 'src/lib/elevenLabs.ts'].map((f) => path.join(ROOT, f)));
+const callsPaidApiDirectly = (file) => /api\.openai\.com|api\.tavily\.com|api\.anthropic\.com|api\.elevenlabs\.io/.test(TEXT.get(file));
 
 function reachesPaid(file, seen = new Set()) {
   if (seen.has(file)) return false;
@@ -94,6 +94,17 @@ describe('AI routes (source guards)', () => {
     }
   });
 
+  test('the Admin voice sample is the only admin route that reaches a paid API, and it needs an Admin first', () => {
+    const reaching = ROUTES.filter(
+      (f) => rel(f).startsWith('src/app/api/admin/') && /\b(elevenLabsSample|elevenLabsSpeech|synthesizeSpeech)\(/.test(TEXT.get(f))
+    ).map(rel);
+    assert.deepEqual(reaching, ['src/app/api/admin/voices/sample/route.ts']);
+    const text = TEXT.get(path.join(ROOT, reaching[0]));
+    const gate = text.indexOf('await checkAdminAccess()');
+    assert.ok(gate >= 0 && gate < text.indexOf('elevenLabsSample('), 'checks the Admin role before calling ElevenLabs');
+    assert.match(text, /MAX_SAMPLE_LENGTH = \d+/, 'caps the sample text');
+  });
+
   test('admin routes make no AI calls', () => {
     for (const file of ROUTES.filter((f) => rel(f).startsWith('src/app/api/admin/'))) {
       assert.doesNotMatch(TEXT.get(file), /chatModel\(|structuredModel\(|searchSentenceImage\(|api\.openai\.com/, rel(file));
@@ -106,7 +117,7 @@ describe('AI routes (source guards)', () => {
         assert.doesNotMatch(text, /new Chat(OpenAI|Anthropic)\(/, `${rel(file)} must use chatModel/structuredModel`);
       }
       if (callsPaidApiDirectly(file)) {
-        assert.ok(['src/app/api/speak/route.ts', 'src/lib/imageSearch.ts'].includes(rel(file)), `${rel(file)} calls a paid API`);
+        assert.ok(['src/lib/speech.ts', 'src/lib/elevenLabs.ts', 'src/lib/imageSearch.ts'].includes(rel(file)), `${rel(file)} calls a paid API`);
       }
     }
   });
@@ -122,8 +133,11 @@ describe('emergency stop and gate (source guards)', () => {
       assert.match(body, /await assertAiServicesOn\(\)/, `${fn} checks the emergency stop`);
     }
     assert.match(read('src/lib/imageSearch.ts'), /await assertAiServicesOn\(\)/);
-    const speak = read('src/app/api/speak/route.ts');
-    assert.ok(speak.indexOf('assertAiServicesOn()') < speak.indexOf('api.openai.com'), 'speak checks before calling OpenAI');
+    const speech = read('src/lib/speech.ts');
+    assert.ok(speech.indexOf('await assertAiServicesOn()') < speech.indexOf('api.openai.com'), 'speech checks before calling OpenAI');
+    const eleven = read('src/lib/elevenLabs.ts');
+    assert.ok(eleven.indexOf('await assertAiServicesOn()') >= 0, 'ElevenLabs checks the emergency stop');
+    assert.ok(eleven.indexOf('await assertAiServicesOn()') < eleven.indexOf('await fetch('), 'ElevenLabs checks before calling');
   });
 
   test('aiRateLimit refuses visitors, honours the stop and the safety ceilings, and fails closed', () => {

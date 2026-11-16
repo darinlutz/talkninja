@@ -17,6 +17,7 @@ export const NOT_EXPORTED: Record<string, string> = {
   PasswordResets: 'Only hashed one-time reset tokens.',
   EmailVerifications: 'Only hashed one-time email confirmation tokens; the export says when the address was confirmed.',
   SiteSettings: 'Site settings an Admin saved (updated_by); not information about you.',
+  VoiceSettings: 'Voice settings an Admin saved (updated_by); not information about you.',
   DeletionLedger: 'Only exists once an account is deleted.',
 };
 
@@ -42,8 +43,9 @@ export async function buildPersonalDataExport(client: Queryable, userId: number,
   const q = async (sql: string) => (await client.query(sql, [userId])).rows.map(clean);
   const [account] = await q(
     `SELECT id, user_name, email_address, role, account_status, created_at, signup_date, subscription_end_date,
-       stripe_customer_id, stripe_subscription_id, native_language, active_learning_language, age_confirmed_at,
-       last_login_at, email_verified_at
+       stripe_customer_id, stripe_subscription_id, stripe_subscription_status, stripe_cancel_at,
+       stripe_current_period_end, stripe_subscription_started_at, stripe_payment_issue, stripe_synced_at,
+       native_language, active_learning_language, age_confirmed_at, last_login_at, email_verified_at
      FROM "Users" WHERE id = $1`
   );
   if (!account) return null;

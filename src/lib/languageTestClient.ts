@@ -220,15 +220,16 @@ export const playError = () =>
     'square'
   );
 
-export const MALE_VOICE = 'alloy';
-export const FEMALE_VOICE = 'nova';
+// The speaker /api/speak is asked for; the server picks the voice for the language (src/lib/voiceSettings.ts)
+export const MALE_VOICE = 'male';
+export const FEMALE_VOICE = 'female';
 
-// Speaks text through /api/speak and resolves once playback starts
-export async function speakText(text: string, voice: string): Promise<void> {
+// Speaks text (in `language`, the language of the text) through /api/speak and resolves once playback starts
+export async function speakText(text: string, voice: string, language: string): Promise<void> {
   const response = await fetch('/api/speak', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text, voice }),
+    body: JSON.stringify({ text, gender: voice, language }),
   });
   // A 429 for the AI limit opens the rate limit dialog
   void reportRateLimit(response);

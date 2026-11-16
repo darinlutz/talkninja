@@ -43,10 +43,8 @@
 }
 
 .container-wide { width: min(1200px, calc(100% - 64px)); margin-inline: auto; }
-.ninja-symbol { display: inline-flex; width: 38px; height: 38px; color: var(--foreground); flex-shrink: 0; }
-.ninja-symbol svg { width: 100%; height: 100%; }
-.ninja-eye-band { fill: var(--card); }
-.ninja-eye { stroke: var(--foreground); }
+.ninja-symbol { display: inline-flex; width: 38px; height: 38px; flex-shrink: 0; }
+.ninja-symbol img { width: 100%; height: 100%; object-fit: contain; display: block; filter: drop-shadow(0 2px 4px oklch(0.2 0.08 260 / 0.35)); }
 .hero { padding-top: 62px; padding-bottom: 70px; overflow: hidden; }
 .hero-grid { display: grid; grid-template-columns: 1.08fr 1fr; gap: 58px; align-items: center; }
 .hero-label { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--border); background: var(--secondary); color: var(--primary); border-radius: 100px; padding: 7px 12px; font-size: 10px; font-weight: 700; margin-bottom: 25px; }
@@ -58,9 +56,6 @@
 .hero-note { display: flex; gap: 8px; align-items: center; font-size: 11px; color: var(--muted-foreground); margin-top: 19px; }
 .hero-art { position: relative; }
 .hero-art img { width: 100%; height: auto; border-radius: 28px; }
-.mascot-note { position: absolute; bottom: 24px; left: -22px; display: flex; align-items: center; gap: 11px; background: var(--card); border: 1px solid var(--border); box-shadow: var(--shadow-soft); padding: 13px 18px; border-radius: 12px; font-size: 12px; transform: rotate(-3deg); }
-.mascot-note strong { display: block; font-size: 13px; }
-.mascot-note p { color: var(--muted-foreground); margin-top: 2px; }
 .belt { width: 36px; height: 9px; display: inline-block; position: relative; border-radius: 2px; flex-shrink: 0; background: var(--belt-color); box-shadow: 0 0 0 1px color-mix(in oklab,var(--foreground) 12%,transparent); }
 .belt::after { content: ''; position: absolute; top: -4px; left: 15px; width: 7px; height: 20px; background: var(--belt-color); transform: rotate(20deg); border-radius: 1px; box-shadow: 1px 0 0 color-mix(in oklab,var(--foreground) 12%,transparent); }
 .belt-white { --belt-color: var(--card); }
@@ -131,6 +126,19 @@
 .vocabulary-copy ul { display: grid; gap: 17px; margin-top: 26px; font-size: 13px; font-weight: 500; }
 .vocabulary-copy li { display: flex; gap: 11px; align-items: center; }
 .vocabulary-copy li svg { color: var(--primary); width: 16px; height: 16px; }
+/* The three disciplines (Reading & Writing, Training, Testing): a dark band with a picture card for each */
+.landing .disciplines-section { padding-block: 90px; background: oklch(0.18 0.05 262); color: oklch(0.97 0.01 250); }
+.landing .disciplines-section .section-heading > p { color: oklch(0.8 0.03 250); }
+.landing .disciplines-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 40px; }
+.landing .discipline-card { border-radius: 20px; overflow: hidden; background: oklch(0.23 0.06 262); border: 1px solid oklch(0.4 0.08 255 / 0.5); }
+.landing .discipline-card img { width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: cover; display: block; }
+.landing .discipline-body { padding: 22px; }
+.landing .discipline-body h3 { font-size: 22px; font-weight: 700; margin: 8px 0 6px; }
+.landing .discipline-body p { color: oklch(0.8 0.03 250); font-size: 14px; line-height: 1.6; }
+@media (max-width: 900px) {
+  .landing .disciplines-grid { grid-template-columns: 1fr; }
+  .landing .disciplines-section { padding-block: 55px; }
+}
 .belt-dialog-list { display: grid; gap: 12px; margin-top: 12px; }
 .belt-dialog-item { display: flex; gap: 20px; align-items: center; border-bottom: 1px solid var(--border); padding: 14px 0; }
 .belt-dialog-item h3 { font-weight: 600; font-size: 14px; }
@@ -154,7 +162,6 @@
   .hero-actions > a, .hero-actions > button { flex: 1; padding-inline: 13px; font-size: 13px; }
   .hero-art { max-width: 380px; width: 88%; margin-inline: auto; }
   .hero-art img { border-radius: 20px; }
-  .mascot-note { left: -13px; bottom: 16px; padding: 10px 12px; }
   .hero-note { font-size: 10px; }
   .section-heading h2 { font-size: 28px; }
   .section-heading > p { font-size: 12px; }

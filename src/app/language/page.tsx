@@ -475,7 +475,7 @@ function Language() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ text: writingWordText, voice }),
+        body: JSON.stringify({ text: writingWordText, gender: voice, language: learnLanguage }),
       });
       // A 429 for the AI limit opens the rate limit dialog
       void reportRateLimit(response);
@@ -500,8 +500,8 @@ function Language() {
     }
   };
 
-  const handleWritingSpeak = () => speakWritingWordText('alloy', setWritingSpeakStatus);
-  const handleWritingSpeakFemale = () => speakWritingWordText('nova', setWritingSpeakFemaleStatus);
+  const handleWritingSpeak = () => speakWritingWordText('male', setWritingSpeakStatus);
+  const handleWritingSpeakFemale = () => speakWritingWordText('female', setWritingSpeakFemaleStatus);
 
 
   // Keeps the Writing tab's word/sentence in the language being learned,
@@ -579,7 +579,8 @@ function Language() {
     };
   }, [activeWordCategory]);
 
-  const handleTranslatorSpeak = async (text: string) => {
+  // The language is that of the box being read aloud
+  const handleTranslatorSpeak = async (text: string, language: Language) => {
     if (!text.trim()) return;
 
     setTranslatorSpeakStatus('loading');
@@ -591,7 +592,7 @@ function Language() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, language }),
       });
       // A 429 for the AI limit opens the rate limit dialog
       void reportRateLimit(response);
@@ -671,7 +672,7 @@ function Language() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, language: learnLanguage }),
       });
       // A 429 for the AI limit opens the rate limit dialog
       void reportRateLimit(response);
@@ -1232,7 +1233,7 @@ function Language() {
                       />
                       <button
                         type="button"
-                        onClick={() => handleTranslatorSpeak(translatorTopText)}
+                        onClick={() => handleTranslatorSpeak(translatorTopText, fromLanguage)}
                         disabled={!translatorTopText.trim() || translatorSpeakStatus === 'loading'}
                         aria-label="Speak"
                         title="Speak"
@@ -1280,7 +1281,7 @@ function Language() {
                       />
                       <button
                         type="button"
-                        onClick={() => handleTranslatorSpeak(translatorBottomText)}
+                        onClick={() => handleTranslatorSpeak(translatorBottomText, toLanguage)}
                         disabled={!translatorBottomText.trim() || translatorSpeakStatus === 'loading'}
                         aria-label="Speak"
                         title="Speak"

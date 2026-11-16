@@ -44,8 +44,10 @@ export const GOVERNING_LAW = 'the Commonwealth of Kentucky, United States';
 const SITE = 'https://talkninja.app';
 
 const EFFECTIVE = 'November 3, 2026';
-// The Privacy Policy was updated on its own (email address confirmation links)
-const PRIVACY_EFFECTIVE = 'November 13, 2026';
+// The Terms were updated on their own (one plan, the Monthly Subscription)
+const TERMS_EFFECTIVE = 'November 16, 2026';
+// The Privacy Policy was updated on its own (ElevenLabs text to speech)
+const PRIVACY_EFFECTIVE = 'November 16, 2026';
 
 const contactBlock: LegalBlock = {
   contact: [
@@ -63,8 +65,8 @@ const days = (n: number) => (n % 365 === 0 ? `${n / 365} year${n === 365 ? '' : 
 
 export const termsOfService: LegalDocumentContent = {
   title: 'TalkNinja Terms of Service',
-  effectiveDate: EFFECTIVE,
-  lastUpdated: EFFECTIVE,
+  effectiveDate: TERMS_EFFECTIVE,
+  lastUpdated: TERMS_EFFECTIVE,
   intro: [
     `These Terms of Service ("Terms") are an agreement between you and ${BUSINESS_OPERATOR} ("TalkNinja," "we," "our," or "us") about your use of the TalkNinja website and services at ${SITE} (the "Services").`,
     'By creating an account, or by using the Services, you agree to these Terms. If you do not agree, do not use the Services. Our Privacy Policy explains how we handle personal information; it is a notice, not part of this agreement.',
@@ -94,12 +96,12 @@ export const termsOfService: LegalDocumentContent = {
       id: 'subscriptions',
       blocks: [
         'Creating an account is free. Training, the Reading and Writing Tests, practice, the Translator, the AI Friend and text-to-speech require a paid subscription.',
-        'We offer a Monthly Subscription and an Annual Subscription. The current price, currency and billing interval of each plan are shown on the Pricing page and on the checkout page before you pay. We do not currently offer free trials.',
+        'We offer one plan, the Monthly Subscription, billed every month. Its current price and currency are shown on the Pricing page and on the checkout page before you pay. We do not currently offer free trials.',
         'Payments are processed by Stripe, our payment processor. We do not receive or store your full card number. By subscribing, you authorize Stripe to charge your payment method for the plan you chose.',
         { strong: 'Automatic renewal.' },
-        'Your subscription renews automatically at the end of each billing period (each month for Monthly, each year for Annual) and you will be charged the plan\'s then-current price, until you cancel. We will tell you in advance, as required by law, before a price change applies to your subscription; if you do not agree, you can cancel before it takes effect.',
+        'Your subscription renews automatically at the end of each monthly billing period and you will be charged the plan\'s then-current price, until you cancel. We will tell you in advance, as required by law, before a price change applies to your subscription; if you do not agree, you can cancel before it takes effect.',
         'If a renewal payment fails, your access to subscriber features ends when the period you already paid for ends. You can subscribe again at any time.',
-        'To change between Monthly and Annual, cancel your current subscription and subscribe to the other plan once the paid period ends. Taxes, if any apply, are shown at checkout.',
+        'You can update your payment method and see your invoices and receipts from your Account page, through Stripe\'s secure billing portal. Taxes, if any apply, are shown at checkout.',
       ],
     },
     {
@@ -254,6 +256,13 @@ export const SERVICE_PROVIDERS: { name: string; service: string; data: string; l
     policy: 'https://openai.com/policies/privacy-policy',
   },
   {
+    name: 'ElevenLabs',
+    service: 'Text-to-speech in some languages (currently Vietnamese)',
+    data: 'The text to be spoken (the words, sentences and AI Friend replies being practiced); no name or email address',
+    location: 'United States',
+    policy: 'https://elevenlabs.io/privacy-policy',
+  },
+  {
     name: 'Anthropic',
     service: 'AI features, when we choose its models for a feature',
     data: 'The same as OpenAI, for the features that use it',
@@ -312,7 +321,7 @@ const retentionRows: string[][] = [
   ['Cookie choice records', `${days(RETENTION_RULES.consentRecords.days)}`],
   ['Record that an account was deleted (account ID and dates only)', `${days(RETENTION_RULES.deletionLedger.days)}`],
   ['What you type into AI features (practice answers, Friend conversations, Translator text)', 'Not stored by us. Kept by our AI providers as described in Section 5'],
-  ['Spoken audio', 'Not stored by us; generated on request and sent to your browser'],
+  ['Spoken audio', 'Not saved by us; generated on request and sent to your browser. Recent audio is kept briefly in server memory to replay the same words, and is gone when the server restarts'],
   ['Payment and billing records', 'Kept by Stripe under its own legal obligations (for example, tax and accounting)'],
   ['Server logs', 'Kept by Render for its log retention period'],
   ['Database backups', 'Kept by Render for its backup period, then overwritten'],
@@ -360,7 +369,7 @@ export const privacyPolicy: LegalDocumentContent = {
         { subheading: 'What we do not collect' },
         {
           list: [
-            'We do not record your voice or use your microphone. Spoken audio is produced for you from text; we do not store it.',
+            'We do not record your voice or use your microphone. Spoken audio is produced for you from text; we do not save it.',
             'We do not use analytics, advertising or tracking cookies or third-party trackers, and we do not build advertising profiles.',
             'We do not ask for sensitive personal information (such as health, religion or political opinions).',
           ],
@@ -402,7 +411,7 @@ export const privacyPolicy: LegalDocumentContent = {
         {
           list: [
             'Our default AI provider is OpenAI. We may choose Anthropic\'s models for some features. We review providers before use and do not route your data to providers outside those listed in Section 5.',
-            'Text-to-speech: the text to be spoken is sent to OpenAI, which returns audio that plays in your browser. We do not store the audio.',
+            'Text-to-speech: the text to be spoken is sent to OpenAI or, for languages with their own voices (currently Vietnamese), to ElevenLabs, which returns audio that plays in your browser. We do not save the audio; recent audio is kept briefly in our server\'s memory so the same words can play again, and is gone when the server restarts.',
             'Interface translation: if your "I speak" language is not English, the site\'s interface text (not your personal information) is sent to OpenAI for translation and cached in your browser.',
             'Monitoring: requests and responses may be recorded in LangSmith, a tool from LangChain, so we can investigate errors and quality problems.',
             'Training of AI models: OpenAI\'s and Anthropic\'s terms for their business APIs state that they do not use data sent through their APIs to train their models unless the customer opts in. We have not opted in. These providers may keep requests for a limited period (for example, to monitor for abuse) under their own terms. We have not arranged zero data retention with them.',

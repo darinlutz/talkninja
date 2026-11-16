@@ -2,16 +2,17 @@
 // cancels one. Never throws: a failed notification mustn't fail the signup
 // or payment that triggered it.
 
+import { emailSender } from './emailLayout';
+
 const ADMIN_EMAIL = 'darinlutz@yahoo.com';
 const APP_NAME = 'TalkNinja';
 
-export type AdminEvent = 'signup' | 'monthly' | 'annual' | 'cancelled';
+export type AdminEvent = 'signup' | 'monthly' | 'cancelled';
 
 const EVENT_TEXT: Record<AdminEvent, { subject: string; body: string }> = {
   signup: { subject: 'New user sign up', body: `has just signed up for ${APP_NAME}` },
   monthly: { subject: 'Monthly subscription purchased', body: `has just purchased a monthly subscription for ${APP_NAME}` },
-  annual: { subject: 'Annual subscription purchased', body: `has just purchased an annual subscription for ${APP_NAME}` },
-  cancelled: { subject: 'Subscription cancelled', body: `has just cancelled their subscription for ${APP_NAME}` },
+  cancelled: { subject: 'Subscription cancelled', body: `has just cancelled their subscription for ${APP_NAME} (it ends with the paid period)` },
 };
 
 export async function notifyAdmin(event: AdminEvent, userEmail: string): Promise<void> {
@@ -30,7 +31,7 @@ export async function notifyAdmin(event: AdminEvent, userEmail: string): Promise
         Authorization: `Bearer ${resendApiKey}`,
       },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+        from: emailSender(),
         to: ADMIN_EMAIL,
         subject: `${APP_NAME} app ${subject}`,
         text: `User ${userEmail} ${body}.`,
@@ -57,7 +58,7 @@ export async function notifyAdminAlert(subject: string, text: string): Promise<v
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendApiKey}` },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+        from: emailSender(),
         to: ADMIN_EMAIL,
         subject: `${APP_NAME} alert: ${subject}`,
         text,

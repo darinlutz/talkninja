@@ -11,8 +11,8 @@
 // date and is never "accepted" or used to gate the site. Their versions are still recorded with each signup and each
 // cookie choice, as evidence of which notice the person was shown.
 export const POLICY_VERSIONS = {
-  terms: '2026-11-03',
-  privacy: '2026-11-13',
+  terms: '2026-11-16',
+  privacy: '2026-11-16',
   cookies: '2026-11-03',
 } as const;
 
