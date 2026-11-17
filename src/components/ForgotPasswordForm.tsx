@@ -57,7 +57,8 @@ export default function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
       )}
       {sent && (
         <p className="p-3 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm">
-          We sent a password reset link to {emailAddress}. It expires in 1 hour.
+          If {emailAddress} has a TalkNinja account, we&apos;ve sent it a password reset link. It expires in 1 hour.
+          If it doesn&apos;t arrive in a few minutes, check your spam folder.
         </p>
       )}
 

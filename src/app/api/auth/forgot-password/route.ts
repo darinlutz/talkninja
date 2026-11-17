@@ -33,9 +33,11 @@ export async function POST(request: Request) {
     }
     recordAttempt(ip);
 
+    // An address with no account gets the same answer as one with an account (and no email), so this form can't be
+    // used to find out who has a TalkNinja account
     const user = await getUserByEmail(emailAddress);
     if (!user) {
-      return NextResponse.json({ error: 'Email address not found' }, { status: 404 });
+      return NextResponse.json({ success: true });
     }
     const email = `reset-email:${emailAddress}`;
     if (limitReached(email, ABUSE_LIMITS.resetPerEmail)) {

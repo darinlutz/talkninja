@@ -117,6 +117,14 @@ describe('signup and password recovery (source guards)', () => {
     assert.match(read('src/lib/siteOrigin.ts'), /throw new Error\('SITE_URL is not set/, 'production refuses links from the Host header');
   });
 
+  test('Forgot Password doesn’t reveal whether an address has an account', () => {
+    const forgot = read('src/app/api/auth/forgot-password/route.ts');
+    const unknown = forgot.slice(forgot.indexOf('if (!user) {'), forgot.indexOf('if (!user) {') + 80);
+    assert.match(unknown, /return NextResponse\.json\(\{ success: true \}\);/, 'same answer as a sent email');
+    assert.doesNotMatch(forgot, /not found|status: 404/i);
+    assert.match(read('src/components/ForgotPasswordForm.tsx'), /If \{emailAddress\} has a TalkNinja account/);
+  });
+
   test('only token hashes are stored', () => {
     for (const file of ['src/lib/emailVerification.ts', 'src/lib/passwordReset.ts']) {
       assert.match(read(file), /createHash\('sha256'\)/, file);
