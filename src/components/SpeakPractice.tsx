@@ -4,13 +4,16 @@ import { useEffect, useRef, useState } from 'react';
 import { Mic, Square } from 'lucide-react';
 import {
   bestSpokenAttempt,
+  gradeSpokenWords,
   SPEAKING_PASS_SCORE,
   speechLocale,
+  type SpokenWordGrade,
 } from '@/lib/speechPractice';
 
 // The Reading & Speaking tab's Speak button: the learner says the sentence shown above, the browser's own speech
 // recognition (Web Speech API) turns it into text as they speak, and the attempt is scored 0-100% against the
-// sentence. TalkNinja never receives the audio; the transcript and score stay in this component (Privacy Policy,
+// sentence. The box beside the button shows only the sentence's own words, each one as the learner reaches it, colored
+// by how well it was said (green correct, light red close, bright red wrong). TalkNinja never receives the audio; the transcript and score stay in this component (Privacy Policy,
 // "Speaking practice"). The microphone is allowed for this site only (Permissions-Policy in next.config.js).
 
 // The parts of the Web Speech API used here (not in every TypeScript DOM library)
@@ -61,6 +64,12 @@ const RECOGNITION_ERRORS: Record<string, string> = {
 };
 
 // A short synthesized chime (no audio files): rising notes for a pass, falling for a miss
+const WORD_STYLES: Record<SpokenWordGrade, { className: string; label: string }> = {
+  correct: { className: 'text-green-400', label: 'Correct' },
+  close: { className: 'text-red-300', label: 'Close' },
+  wrong: { className: 'text-red-500 font-bold underline decoration-wavy decoration-2 underline-offset-4', label: 'Wrong' },
+};
+
 function playChime(passed: boolean) {
   try {
     const AudioContextClass =
@@ -98,7 +107,8 @@ interface SpeakPracticeProps {
 
 export default function SpeakPractice({ expected, language }: SpeakPracticeProps) {
   const [listening, setListening] = useState(false);
-  const [transcript, setTranscript] = useState('');
+  // What the recognizer has heard so far, and whether the attempt is over (then every word is graded)
+  const [heard, setHeard] = useState<{ text: string; finished: boolean }>({ text: '', finished: false });
   // The score of the last attempt, and the sentence it was for (a new sentence clears it)
   const [result, setResult] = useState<{ for: string; score: number } | null>(null);
   const [message, setMessage] = useState('');
@@ -109,7 +119,7 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
   if (attemptKey !== `${language}|${expected}`) {
     setAttemptKey(`${language}|${expected}`);
     setListening(false);
-    setTranscript('');
+    setHeard({ text: '', finished: false });
     setResult(null);
     setMessage('');
   }
@@ -165,7 +175,7 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
       // One final result (the usual case): score each of its alternatives; several: their first choices joined
       if (alternatives.length === 1) finalAlternatives = alternatives[0];
       else if (alternatives.length > 1) finalAlternatives = [finalText];
-      setTranscript(`${finalText}${interimText}`.trim());
+      setHeard({ text: `${finalText}${interimText}`.trim(), finished: false });
     };
 
     recognition.onerror = (event) => {
@@ -187,14 +197,14 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
         return;
       }
       const best = bestSpokenAttempt(target, heard, locale);
-      setTranscript(best.transcript.trim());
+      setHeard({ text: best.transcript.trim(), finished: true });
       setResult({ for: target, score: best.score });
       playChime(best.score >= SPEAKING_PASS_SCORE);
     };
 
     recognitionRef.current?.abort();
     recognitionRef.current = recognition;
-    setTranscript('');
+    setHeard({ text: '', finished: false });
     setResult(null);
     setMessage('');
     try {
@@ -208,6 +218,7 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
 
   const shownResult = result && result.for === expected ? result : null;
   const passed = shownResult ? shownResult.score >= SPEAKING_PASS_SCORE : false;
+  const spokenWords = heard.text ? gradeSpokenWords(expected, heard.text, speechLocale(language), heard.finished) : [];
 
   return (
     <div>
@@ -232,15 +243,33 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
             </>
           )}
         </button>
-        <textarea
-          value={transcript}
-          readOnly
-          aria-label="What we heard"
-          placeholder={listening ? 'Listening… say the phrase' : 'Press Speak and say the phrase. Your words appear here.'}
-          className="practice-field"
-          rows={2}
-        />
+        <div
+          aria-label="Your pronunciation"
+          aria-live="polite"
+          className="practice-field practice-text-lg"
+          style={{ minHeight: 'calc(2.7em + 1.5rem + 2px)' }}
+        >
+          {spokenWords.map((part, i) =>
+            part.grade ? (
+              <span key={i} className={WORD_STYLES[part.grade].className} title={WORD_STYLES[part.grade].label}>
+                {part.text}
+              </span>
+            ) : (
+              <span key={i}>{part.text}</span>
+            )
+          )}
+        </div>
       </div>
+
+      {spokenWords.some((part) => part.grade) && (
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm" aria-hidden="true">
+          {(Object.keys(WORD_STYLES) as SpokenWordGrade[]).map((grade) => (
+            <span key={grade} className={WORD_STYLES[grade].className}>
+              {WORD_STYLES[grade].label}
+            </span>
+          ))}
+        </div>
+      )}
 
       {shownResult && (
         <div className="mt-2 flex items-center gap-3 font-semibold" role="status">

@@ -85,6 +85,137 @@ export function scoreSpokenAttempt(expected: string, spoken: string, locale?: st
   return Math.max(0, Math.min(100, score));
 }
 
+// How well each word of the sentence was said: green, light red, bright red in the Speak box
+export type SpokenWordGrade = 'correct' | 'close' | 'wrong';
+
+// One piece of the sentence as the Speak box shows it: a word with its grade, or the spacing/punctuation between
+// words (grade null), always in the sentence's own spelling, never the recognizer's
+export interface SpokenWordPart {
+  text: string;
+  grade: SpokenWordGrade | null;
+}
+
+// A word with at least 80% of its letters right is correct (so a word of 5+ letters may have one slip, 10+ two;
+// shorter words must be exact); at least half right is close; anything worse is wrong
+export const CORRECT_WORD_SCORE = 0.8;
+export const CLOSE_WORD_SCORE = 0.5;
+
+interface SentencePiece {
+  text: string;
+  chars: string[]; // normalized letters, empty for spacing and punctuation
+}
+
+// The sentence's words and the text between them. Intl.Segmenter finds words in languages written without spaces
+// (Chinese, Japanese, Thai); without it, words are what's between spaces.
+function sentencePieces(sentence: string, locale?: string): SentencePiece[] {
+  const piece = (text: string): SentencePiece => ({
+    text,
+    chars: Array.from(normalizeSpokenText(text, locale).replace(/ /g, '')),
+  });
+  const Segmenter = (Intl as unknown as {
+    Segmenter?: new (locale?: string, options?: { granularity: 'word' }) => {
+      segment(text: string): Iterable<{ segment: string; isWordLike?: boolean }>;
+    };
+  }).Segmenter;
+  if (Segmenter) {
+    try {
+      return Array.from(new Segmenter(locale, { granularity: 'word' }).segment(sentence), (s) =>
+        s.isWordLike ? piece(s.segment) : { text: s.segment, chars: [] }
+      );
+    } catch {
+      // An unknown locale: fall through to spaces
+    }
+  }
+  return sentence.split(/(\s+)/).filter(Boolean).map(piece);
+}
+
+// Grades each word of the sentence by lining up its letters with what was heard (letters, not the recognizer's
+// words, since recognizers split words differently). While the learner is still speaking (finished false), only the
+// words they've reached so far are returned, so the box fills in as they speak; once they've finished, every word is
+// returned and the ones never said are wrong.
+export function gradeSpokenWords(
+  expected: string,
+  spoken: string,
+  locale?: string,
+  finished = false
+): SpokenWordPart[] {
+  const pieces = sentencePieces(expected, locale);
+  const words = pieces.map((p, i) => ({ index: i, chars: p.chars })).filter((p) => p.chars.length > 0);
+  const target: string[] = [];
+  const owner: number[] = []; // which word each letter of the sentence belongs to
+  words.forEach((w, k) => {
+    for (const c of w.chars) {
+      target.push(c);
+      owner.push(k);
+    }
+  });
+  const heard = Array.from(normalizeSpokenText(spoken, locale).replace(/ /g, ''));
+  const n = target.length;
+  const m = heard.length;
+  if (n === 0 || m === 0) return [];
+
+  // Edit distance between every prefix of the sentence and every prefix of what was heard
+  const d: number[][] = Array.from({ length: n + 1 }, (_, i) => {
+    const row = new Array<number>(m + 1).fill(0);
+    row[0] = i;
+    return row;
+  });
+  for (let j = 0; j <= m; j++) d[0][j] = j;
+  for (let i = 1; i <= n; i++) {
+    for (let j = 1; j <= m; j++) {
+      d[i][j] = Math.min(
+        d[i - 1][j] + 1,
+        d[i][j - 1] + 1,
+        d[i - 1][j - 1] + (target[i - 1] === heard[j - 1] ? 0 : 1)
+      );
+    }
+  }
+
+  // Finished: the whole sentence. Still speaking: the longest part of the sentence that best matches what's been
+  // heard, so words not yet reached don't count as mistakes.
+  let end = n;
+  if (!finished) {
+    end = 0;
+    for (let i = 1; i <= n; i++) if (d[i][m] <= d[end][m]) end = i;
+  }
+
+  // Walk the alignment back, counting each word's mistakes; an extra letter counts against the word it follows
+  const errors = new Array<number>(words.length).fill(0);
+  let i = end;
+  let j = m;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && d[i][j] === d[i - 1][j - 1] + (target[i - 1] === heard[j - 1] ? 0 : 1)) {
+      if (target[i - 1] !== heard[j - 1]) errors[owner[i - 1]]++;
+      i--;
+      j--;
+    } else if (i > 0 && d[i][j] === d[i - 1][j] + 1) {
+      errors[owner[i - 1]]++;
+      i--;
+    } else {
+      errors[i > 0 ? owner[i - 1] : 0]++;
+      j--;
+    }
+  }
+
+  const reachedWords = end === 0 ? 0 : owner[end - 1] + 1;
+  if (reachedWords === 0) return [];
+  const lastPiece = words[reachedWords - 1].index;
+  const gradeOf = new Map(
+    words.slice(0, reachedWords).map((w, k): [number, SpokenWordGrade] => {
+      const score = 1 - errors[k] / w.chars.length;
+      return [w.index, score >= CORRECT_WORD_SCORE ? 'correct' : score >= CLOSE_WORD_SCORE ? 'close' : 'wrong'];
+    })
+  );
+  // The reached words and what's between them (spacing collapsed); once finished, the closing punctuation too
+  const shown = (finished ? pieces : pieces.slice(0, lastPiece + 1)).map((p, k) => ({
+    text: /^\s+$/.test(p.text) ? ' ' : p.text,
+    grade: gradeOf.get(k) ?? null,
+  }));
+  while (shown.length > 0 && shown[0].text === ' ') shown.shift();
+  while (shown.length > 0 && shown[shown.length - 1].text === ' ') shown.pop();
+  return shown;
+}
+
 // The best score among the recognizer's alternatives, and the transcript it came from
 export function bestSpokenAttempt(
   expected: string,

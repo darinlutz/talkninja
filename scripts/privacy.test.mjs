@@ -30,7 +30,7 @@ import { MINIMUM_AGE, POLICY_VERSIONS, acceptsCurrentTerms } from '../src/lib/po
 import { RETENTION_KEYS, RETENTION_RULES, cutoff, retentionDays } from '../src/lib/retentionRules.ts';
 import { AI_MODELS, AI_MODEL_PROVIDERS } from '../src/lib/aiModelList.ts';
 import { EXPORTED_TABLES, NOT_EXPORTED } from '../src/lib/personalDataExport.ts';
-import { SPEAKING_PASS_SCORE, SPEECH_RECOGNITION_LOCALES, bestSpokenAttempt, scoreSpokenAttempt } from '../src/lib/speechPractice.ts';
+import { SPEAKING_PASS_SCORE, SPEECH_RECOGNITION_LOCALES, bestSpokenAttempt, gradeSpokenWords, scoreSpokenAttempt } from '../src/lib/speechPractice.ts';
 import { LANGUAGES } from '../src/lib/languages.ts';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -231,6 +231,24 @@ describe('speaking practice scores', () => {
     assert.deepEqual(bestSpokenAttempt('good night', ['good knight', 'good night']), { transcript: 'good night', score: 100 });
     assert.equal(SPEAKING_PASS_SCORE, 80);
     for (const language of LANGUAGES) assert.ok(SPEECH_RECOGNITION_LOCALES[language], language);
+  });
+  const graded = (parts) => parts.filter((p) => p.grade).map((p) => `${p.text}:${p.grade}`);
+  test('the Speak box shows only the sentence\'s words, as they are reached, each graded', () => {
+    assert.deepEqual(gradeSpokenWords('Tôi muốn uống', '', 'vi-VN'), []);
+    // Still speaking: only the words reached so far, in the sentence's own spelling
+    assert.deepEqual(graded(gradeSpokenWords('Tôi muốn uống cà phê.', 'tôi muốn', 'vi-VN')), ['Tôi:correct', 'muốn:correct']);
+    // One slip in a long word is still correct; in a short word it's close
+    assert.deepEqual(graded(gradeSpokenWords('good morning', 'good mornin', 'en-US', true)), ['good:correct', 'morning:correct']);
+    assert.deepEqual(graded(gradeSpokenWords('good morning', 'goo morning', 'en-US', true)), ['good:close', 'morning:correct']);
+    // A wrong tone mark (short word) is close; a different word is wrong
+    assert.deepEqual(graded(gradeSpokenWords('Tôi muốn uống', 'tôi muôn uống', 'vi-VN', true)), ['Tôi:correct', 'muốn:close', 'uống:correct']);
+    assert.deepEqual(graded(gradeSpokenWords('good morning friend', 'good banana friend', 'en-US', true)), ['good:correct', 'morning:wrong', 'friend:correct']);
+    // Finished: words never said are wrong, and the sentence's punctuation comes back
+    const finished = gradeSpokenWords('Hello there!', 'hello', 'en-US', true);
+    assert.deepEqual(graded(finished), ['Hello:correct', 'there:wrong']);
+    assert.equal(finished.map((p) => p.text).join(''), 'Hello there!');
+    // Languages written without spaces still grade word by word
+    assert.ok(graded(gradeSpokenWords('你好吗', '你好吗', 'zh-CN', true)).every((w) => w.endsWith(':correct')));
   });
 });
 
