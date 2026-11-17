@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import ForgotPasswordForm from './ForgotPasswordForm';
 
-const inputClass =
-  'w-full px-4 py-3 bg-white border border-slate-300 rounded-lg text-dark-blue placeholder-slate-400 focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors';
+// The training hall's dark fields (src/app/landing.css; the page wraps the form in .landing)
+const inputClass = 'practice-field';
 
 type LoginFormProps = {
   // Email saved by a previous "Remember me" login on this browser, or ''
@@ -49,13 +49,13 @@ export default function LoginForm({ rememberedEmail }: LoginFormProps) {
   };
 
   if (forgotPassword) {
-    return <ForgotPasswordForm onBack={() => setForgotPassword(false)} />;
+    return <ForgotPasswordForm onBack={() => setForgotPassword(false)} backLabel="Back to Log In" />;
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="auth-form">
       <div>
-        <label htmlFor="emailAddress" className="block text-sm font-medium text-dark-blue mb-2">
+        <label htmlFor="emailAddress" className="practice-label">
           Email Address
         </label>
         <input
@@ -71,7 +71,7 @@ export default function LoginForm({ rememberedEmail }: LoginFormProps) {
       </div>
 
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-dark-blue mb-2">
+        <label htmlFor="password" className="practice-label">
           Password
         </label>
         <input
@@ -86,36 +86,35 @@ export default function LoginForm({ rememberedEmail }: LoginFormProps) {
         />
       </div>
 
-      <label className="flex items-center gap-2 text-sm text-dark-blue cursor-pointer">
+      <label className="auth-check">
         <input
           type="checkbox"
           name="rememberMe"
           checked={rememberMe}
           onChange={(e) => setRememberMe(e.target.checked)}
-          className="h-4 w-4 rounded border-slate-300 accent-powder-600"
         />
         Remember me
       </label>
 
       {error && (
-        <p className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{error}</p>
+        <p className="practice-error">{error}</p>
       )}
 
       <button
         type="submit"
         disabled={loading}
-        className="w-full px-6 py-3 rounded-lg bg-gradient-to-r from-powder-500 to-powder-600 text-white font-semibold hover:shadow-lg transition-all disabled:opacity-60"
+        className="practice-btn practice-btn-wide auth-submit"
       >
         {loading ? 'Logging in...' : 'Log In'}
       </button>
 
-      <p className="text-center text-sm text-slate-600">
+      <p className="auth-note">
         Don&apos;t have an account?{' '}
-        <Link href="/signup" className="text-powder-600 hover:underline font-medium">
+        <Link href="/signup" className="auth-link">
           Sign up
         </Link>
       </p>
-      <p className="text-center text-sm text-slate-600">
+      <p className="auth-note">
         Forgot password?{' '}
         <a
           href="#"
@@ -123,7 +122,7 @@ export default function LoginForm({ rememberedEmail }: LoginFormProps) {
             e.preventDefault();
             setForgotPassword(true);
           }}
-          className="text-powder-600 hover:underline font-medium"
+          className="auth-link"
         >
           Click here
         </a>

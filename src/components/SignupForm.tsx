@@ -8,8 +8,8 @@ import { DEFAULT_LEARN_LANGUAGE, DEFAULT_USER_LANGUAGE, LANGUAGES, type Language
 import { en, fill } from '@/lib/i18n/en';
 import { MINIMUM_AGE, POLICY_VERSIONS } from '@/lib/policyVersions';
 
-const inputClass =
-  'w-full px-4 py-3 bg-white border border-slate-300 rounded-lg text-dark-blue placeholder-slate-400 focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors';
+// The training hall's dark fields (src/app/landing.css; the page wraps the form in .landing)
+const inputClass = 'practice-field';
 
 export default function SignupForm() {
   const router = useRouter();
@@ -71,13 +71,13 @@ export default function SignupForm() {
   };
 
   if (forgotPassword) {
-    return <ForgotPasswordForm onBack={() => setForgotPassword(false)} />;
+    return <ForgotPasswordForm onBack={() => setForgotPassword(false)} backLabel="Back to Create an Account" />;
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="auth-form">
       <div>
-        <label htmlFor="userName" className="block text-sm font-medium text-dark-blue mb-2">
+        <label htmlFor="userName" className="practice-label">
           Name *
         </label>
         <input
@@ -93,7 +93,7 @@ export default function SignupForm() {
       </div>
 
       <div>
-        <label htmlFor="emailAddress" className="block text-sm font-medium text-dark-blue mb-2">
+        <label htmlFor="emailAddress" className="practice-label">
           Email Address *
         </label>
         <input
@@ -109,8 +109,8 @@ export default function SignupForm() {
       </div>
 
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-dark-blue mb-2">
-          Password * <span className="text-slate-500 font-normal">(at least 8 characters)</span>
+        <label htmlFor="password" className="practice-label">
+          Password * <span className="font-normal opacity-75">(at least 8 characters)</span>
         </label>
         <input
           type="password"
@@ -126,9 +126,9 @@ export default function SignupForm() {
       </div>
 
       {/* Changed later on the Account page's Language Setup */}
-      <div className="grid gap-6 sm:grid-cols-2">
+      <div className="grid gap-5 sm:grid-cols-2">
         <div>
-          <label htmlFor="nativeLanguage" className="block text-sm font-medium text-dark-blue mb-2">
+          <label htmlFor="nativeLanguage" className="practice-label">
             I speak *
           </label>
           <select
@@ -137,7 +137,7 @@ export default function SignupForm() {
             value={formData.nativeLanguage}
             onChange={handleChange}
             required
-            className={inputClass}
+            className="practice-select"
           >
             {LANGUAGES.map((lang) => (
               <option key={lang} value={lang}>
@@ -147,7 +147,7 @@ export default function SignupForm() {
           </select>
         </div>
         <div>
-          <label htmlFor="activeLearningLanguage" className="block text-sm font-medium text-dark-blue mb-2">
+          <label htmlFor="activeLearningLanguage" className="practice-label">
             and want to learn *
           </label>
           <select
@@ -156,7 +156,7 @@ export default function SignupForm() {
             value={formData.activeLearningLanguage}
             onChange={handleChange}
             required
-            className={inputClass}
+            className="practice-select"
           >
             {LANGUAGES.map((lang) => (
               <option key={lang} value={lang}>
@@ -166,40 +166,38 @@ export default function SignupForm() {
           </select>
         </div>
       </div>
-      <p className="-mt-3 text-sm text-slate-500">You can change these anytime on your Account page.</p>
+      <p className="practice-hint -mt-2">You can change these anytime on your Account page.</p>
 
-      <div className="space-y-3 text-sm text-dark-blue">
-        <label className="flex items-start gap-2">
+      <div className="space-y-3">
+        <label className="auth-check">
           <input
             type="checkbox"
             name="ageConfirmed"
             checked={ageConfirmed}
             onChange={(e) => setAgeConfirmed(e.target.checked)}
             required
-            className="mt-1"
           />
           <span>{fill(t.ageConfirm, { age: MINIMUM_AGE })}</span>
         </label>
-        <label className="flex items-start gap-2">
+        <label className="auth-check">
           <input
             type="checkbox"
             name="acceptedTerms"
             checked={acceptedTerms}
             onChange={(e) => setAcceptedTerms(e.target.checked)}
             required
-            className="mt-1"
           />
           <span>
             {t.termsAgreeBefore}
-            <Link href="/terms" target="_blank" className="text-powder-600 hover:underline font-medium">
+            <Link href="/terms" target="_blank" className="auth-link">
               {en.footer.terms}
             </Link>
             {t.termsAgreeAfter}
           </span>
         </label>
-        <p className="text-slate-600">
+        <p className="practice-hint">
           {t.privacyNoticeBefore}
-          <Link href="/privacy" target="_blank" className="text-powder-600 hover:underline font-medium">
+          <Link href="/privacy" target="_blank" className="auth-link">
             {en.footer.privacy}
           </Link>
           {t.privacyNoticeAfter}
@@ -207,24 +205,24 @@ export default function SignupForm() {
       </div>
 
       {error && (
-        <p className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{error}</p>
+        <p className="practice-error">{error}</p>
       )}
 
       <button
         type="submit"
         disabled={loading}
-        className="w-full px-6 py-3 rounded-lg bg-gradient-to-r from-powder-500 to-powder-600 text-white font-semibold hover:shadow-lg transition-all disabled:opacity-60"
+        className="practice-btn practice-btn-wide auth-submit"
       >
         {loading ? 'Creating account...' : 'Create Account'}
       </button>
 
-      <p className="text-center text-sm text-slate-600">
+      <p className="auth-note">
         Already have an account?{' '}
-        <Link href="/login" className="text-powder-600 hover:underline font-medium">
+        <Link href="/login" className="auth-link">
           Log in
         </Link>
       </p>
-      <p className="text-center text-sm text-slate-600">
+      <p className="auth-note">
         Forgot password?{' '}
         <a
           href="#"
@@ -232,7 +230,7 @@ export default function SignupForm() {
             e.preventDefault();
             setForgotPassword(true);
           }}
-          className="text-powder-600 hover:underline font-medium"
+          className="auth-link"
         >
           Click here
         </a>

@@ -2,10 +2,10 @@
 
 import { useState } from 'react';
 
-const inputClass =
-  'w-full px-4 py-3 bg-white border border-slate-300 rounded-lg text-dark-blue placeholder-slate-400 focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors';
+// The training hall's dark fields (src/app/landing.css; the page wraps the form in .landing)
+const inputClass = 'practice-field';
 
-export default function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
+export default function ForgotPasswordForm({ onBack, backLabel }: { onBack: () => void; backLabel: string }) {
   const [emailAddress, setEmailAddress] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -35,9 +35,9 @@ export default function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="auth-form">
       <div>
-        <label htmlFor="resetEmailAddress" className="block text-sm font-medium text-dark-blue mb-2">
+        <label htmlFor="resetEmailAddress" className="practice-label">
           Email Address *
         </label>
         <input
@@ -53,10 +53,10 @@ export default function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
       </div>
 
       {error && (
-        <p className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{error}</p>
+        <p className="practice-error">{error}</p>
       )}
       {sent && (
-        <p className="p-3 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm">
+        <p className="practice-success">
           If {emailAddress} has a TalkNinja account, we&apos;ve sent it a password reset link. It expires in 1 hour.
           If it doesn&apos;t arrive in a few minutes, check your spam folder.
         </p>
@@ -65,14 +65,14 @@ export default function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
       <button
         type="submit"
         disabled={loading}
-        className="w-full px-6 py-3 rounded-lg bg-gradient-to-r from-powder-500 to-powder-600 text-white font-semibold hover:shadow-lg transition-all disabled:opacity-60"
+        className="practice-btn practice-btn-wide auth-submit"
       >
         {loading ? 'Sending...' : 'Reset Password'}
       </button>
 
-      <p className="text-center text-sm text-slate-600">
-        <button type="button" onClick={onBack} className="text-powder-600 hover:underline font-medium">
-          Back to Create an Account
+      <p className="auth-note">
+        <button type="button" onClick={onBack} className="auth-link">
+          {backLabel}
         </button>
       </p>
     </form>
