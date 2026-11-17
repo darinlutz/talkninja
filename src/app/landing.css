@@ -139,6 +139,72 @@
   .landing .disciplines-grid { grid-template-columns: 1fr; }
   .landing .disciplines-section { padding-block: 55px; }
 }
+/* The Pricing page (src/app/pricing/page.tsx, PricingPlans): a dark band with the plan card beside the belts it includes */
+.landing .pricing-section { background: var(--foreground); color: var(--ink-inverse); padding-block: 77px 85px; min-height: calc(100vh - 4rem); }
+.landing .pricing-section .eyebrow { color: var(--belt-blue); }
+.landing .pricing-section .section-heading h1 { font-size: 40px; font-weight: 700; margin-top: 10px; }
+.landing .pricing-section .section-heading > p { color: var(--inverse-muted); }
+.landing .pricing-showcase { display: grid; grid-template-columns: 1.1fr .9fr; gap: 22px; max-width: 920px; margin: 42px auto 0; align-items: stretch; }
+.landing .plan { border: 1px solid var(--inverse-border); border-radius: 24px; padding: 32px; text-align: left; display: flex; flex-direction: column; }
+.landing .plan-featured { position: relative; overflow: hidden; background: linear-gradient(160deg, var(--inverse-surface), color-mix(in oklab, var(--primary) 35%, var(--inverse-surface))); border-color: color-mix(in oklab, var(--primary) 60%, transparent); box-shadow: 0 30px 80px -30px color-mix(in oklab, var(--primary) 70%, transparent); }
+.landing .plan-featured > * { position: relative; }
+.landing .plan-featured > .plan-glow { position: absolute; inset: -40% -20% auto auto; width: 320px; height: 320px; border-radius: 50%; background: radial-gradient(circle, color-mix(in oklab, var(--belt-blue) 45%, transparent), transparent 70%); pointer-events: none; }
+.landing .plan-label { font-family: var(--font-inter), sans-serif; font-size: 10px; font-weight: 600; opacity: .8; display: flex; gap: 8px; align-items: center; }
+.landing .plan-price { display: flex; align-items: baseline; gap: 10px; margin-top: 20px; }
+.landing .price-amount { font-family: var(--font-space-grotesk), sans-serif; font-size: 64px; font-weight: 700; line-height: 1; letter-spacing: -.03em; }
+.landing .price-period { font-size: 14px; opacity: .7; }
+.landing .plan > p:not(.plan-price) { font-size: 13px; opacity: .75; margin-top: 10px; line-height: 1.7; }
+.landing .plan ul { display: grid; gap: 15px; font-size: 13px; margin: 27px 0 30px; }
+.landing .plan li { display: flex; gap: 10px; align-items: center; }
+.landing .plan li svg { width: 14px; height: 14px; flex-shrink: 0; }
+.landing .plan-action { margin-top: auto; }
+.landing .plan-path { border: 1px solid var(--inverse-border); border-radius: 24px; padding: 32px; display: flex; flex-direction: column; }
+.landing .plan-path h3 { font-size: 24px; font-weight: 600; margin-top: 12px; }
+.landing .plan-belts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 24px 0; }
+.landing .plan-belt { display: flex; align-items: center; gap: 10px; font-size: 12px; padding: 10px 12px; border-radius: 12px; background: var(--inverse-surface); border: 1px solid var(--inverse-border); }
+/* The black belt is the band's own color, so it's a lighter black here to show */
+.landing .plan-belt .belt-black { --belt-color: oklch(0.38 0.03 260); }
+.landing .plan-perks { margin-top: auto; display: grid; gap: 10px; font-size: 12px; color: var(--inverse-muted); }
+.landing .plan-perks li { display: flex; gap: 8px; align-items: center; }
+.landing .plan-perks svg { color: var(--belt-blue); }
+.landing .pricing-note { text-align: center; color: var(--inverse-muted); font-size: 11px; margin-top: 25px; }
+@media (max-width: 760px) {
+  .landing .pricing-section { padding-block: 50px; }
+  .landing .pricing-section .section-heading h1 { font-size: 30px; }
+  .landing .pricing-showcase { grid-template-columns: 1fr; }
+  .landing .price-amount { font-size: 52px; }
+  .landing .plan, .landing .plan-path { padding: 26px; border-radius: 20px; }
+}
+/* My Dojo (src/app/dojo/page.tsx): the training hall, a dark page with a picture card per practice tab */
+.landing.dojo-page { min-height: calc(100vh - 4rem); background: radial-gradient(ellipse at top, color-mix(in oklab, var(--primary) 22%, oklch(0.16 0.04 262)) 0%, oklch(0.13 0.035 262) 60%); color: var(--ink-inverse); }
+.landing .dojo-main { padding-block: 3.5rem 5rem; }
+.landing .dojo-header { text-align: center; display: grid; justify-items: center; gap: .75rem; margin-bottom: 3rem; }
+.landing .dojo-header .eyebrow { color: var(--belt-blue); }
+.landing .dojo-header h1 { font-size: clamp(2.5rem, 6vw, 4rem); font-weight: 700; letter-spacing: -.03em; line-height: 1; }
+.landing .dojo-header p { color: var(--inverse-muted); }
+.landing .dojo-header strong { color: var(--ink-inverse); }
+.landing .dojo-status { display: inline-flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: .6rem; padding: .5rem 1.1rem; border-radius: 999px; border: 1px solid oklch(1 0 0 / 14%); background: oklch(1 0 0 / 6%); backdrop-filter: blur(8px); font-size: .875rem; }
+.landing .dojo-next-step { font-weight: 600; color: oklch(0.75 0.15 245); }
+.landing a.dojo-next-step:hover, .landing .dojo-setup a:hover { text-decoration: underline; }
+.landing .dojo-divider { width: 1px; height: 1rem; background: oklch(1 0 0 / 20%); }
+.landing .dojo-setup { font-size: .8rem; }
+.landing .dojo-setup a { font-weight: 600; color: oklch(0.75 0.15 245); }
+.landing .dojo-grid { display: grid; gap: 1.5rem; grid-template-columns: 1fr; }
+@media (min-width: 768px) { .landing .dojo-grid { grid-template-columns: 1fr 1fr; } }
+.landing .dojo-card { display: block; border-radius: 1.25rem; overflow: hidden; border: 1px solid oklch(1 0 0 / 10%); background: oklch(0.19 0.04 262); transition: transform .3s, border-color .3s, box-shadow .3s; }
+.landing .dojo-card:hover, .landing .dojo-card:focus-visible { transform: translateY(-4px); border-color: color-mix(in oklab, var(--primary) 60%, transparent); box-shadow: 0 20px 50px -20px color-mix(in oklab, var(--primary) 60%, transparent); }
+.landing .dojo-card:focus-visible { outline: 2px solid oklch(0.75 0.15 245); outline-offset: 3px; }
+.landing .dojo-card-media { position: relative; aspect-ratio: 16 / 9; overflow: hidden; }
+.landing .dojo-card-media img { width: 100%; height: 100%; object-fit: cover; transition: transform .6s; }
+.landing .dojo-card:hover .dojo-card-media img { transform: scale(1.04); }
+.landing .dojo-card-media::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, oklch(0.19 0.04 262) 0%, transparent 45%); }
+.landing .dojo-num { position: absolute; top: 1rem; left: 1rem; z-index: 1; font-family: var(--font-display); font-size: .75rem; letter-spacing: .2em; padding: .3rem .6rem; border-radius: .4rem; background: oklch(0 0 0 / 45%); border: 1px solid oklch(1 0 0 / 15%); }
+.landing .dojo-card-body { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; padding: .25rem 1.5rem 1.5rem; }
+.landing .dojo-card-body h2 { font-size: 1.4rem; font-weight: 600; margin-bottom: .35rem; }
+.landing .dojo-card-body p { color: oklch(0.78 0.03 250); font-size: .925rem; line-height: 1.55; }
+.landing .dojo-arrow { flex-shrink: 0; display: grid; place-items: center; width: 2.5rem; height: 2.5rem; border-radius: 999px; border: 1px solid oklch(1 0 0 / 18%); transition: background .3s, border-color .3s; }
+.landing .dojo-card:hover .dojo-arrow, .landing .dojo-card:focus-visible .dojo-arrow { background: var(--primary); border-color: var(--primary); }
+@media (max-width: 700px) { .landing .dojo-main { padding-block: 2.5rem 3.5rem; } }
 .belt-dialog-list { display: grid; gap: 12px; margin-top: 12px; }
 .belt-dialog-item { display: flex; gap: 20px; align-items: center; border-bottom: 1px solid var(--border); padding: 14px 0; }
 .belt-dialog-item h3 { font-weight: 600; font-size: 14px; }

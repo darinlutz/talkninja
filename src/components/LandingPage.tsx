@@ -39,7 +39,7 @@ const DISCIPLINES = [
 ];
 
 // The home page, brought over from color-belt-lingo. Its styles are in
-// src/app/landing.css, scoped under .landing. Pricing is its own page.
+// src/app/landing.css, scoped under .landing. Pricing is its own page (src/app/pricing), in the same design.
 export default function LandingPage() {
   const [dialog, setDialog] = useState<'belts' | null>(null);
 
