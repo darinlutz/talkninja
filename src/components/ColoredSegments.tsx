@@ -15,10 +15,40 @@ const PAIR_COLORS = [
   '#78716c', // stone
 ];
 
+// The same hues, lightened to read on the practice tabs' dark fields
+// (.practice-page in src/app/landing.css)
+const PAIR_COLORS_ON_DARK = [
+  '#7aa7ff', // blue
+  '#fb923c', // orange
+  '#c084fc', // purple
+  '#2dd4bf', // teal
+  '#f472b6', // pink
+  '#fbbf24', // amber
+  '#a5b4fc', // indigo
+  '#22d3ee', // cyan
+  '#e879f9', // fuchsia
+  '#d6d3d1', // stone
+];
+
+export function pairColor(group: number, tone: 'light' | 'dark' = 'light'): string {
+  const colors = tone === 'dark' ? PAIR_COLORS_ON_DARK : PAIR_COLORS;
+  return colors[group % colors.length];
+}
+
 // Renders a sentence with each paired word in its pair's color, so a
 // sentence and its translation can be shown with matching colors. It's
 // practice content, so the site-wide PageTranslator leaves it alone.
-export default function ColoredSegments({ segments }: { segments: AlignedSegment[] }) {
+// `tone` picks colors for a light or dark background; `bold` is off where the
+// text must line up exactly with a textarea's (ColoredTextArea).
+export default function ColoredSegments({
+  segments,
+  tone = 'light',
+  bold = true,
+}: {
+  segments: AlignedSegment[];
+  tone?: 'light' | 'dark';
+  bold?: boolean;
+}) {
   return (
     <>
       {segments.map((segment, i) =>
@@ -30,8 +60,8 @@ export default function ColoredSegments({ segments }: { segments: AlignedSegment
           <span
             key={i}
             translate="no"
-            className="font-bold"
-            style={{ color: PAIR_COLORS[segment.group % PAIR_COLORS.length] }}
+            className={bold ? 'font-bold' : undefined}
+            style={{ color: pairColor(segment.group, tone) }}
           >
             {segment.text}
           </span>

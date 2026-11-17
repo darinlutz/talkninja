@@ -1,22 +1,29 @@
 'use client';
 
 import { Suspense, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { ArrowUpDown, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, ArrowUpDown, Eye, EyeOff } from 'lucide-react';
 import LanguageForm from '@/components/LanguageForm';
 import ReadingTest from '@/components/ReadingTest';
 import Training from '@/components/Training';
 import WritingTest from '@/components/WritingTest';
+import ColoredTextArea from '@/components/ColoredTextArea';
+import type { AlignedSegment } from '@/lib/wordAlignment';
 import type { Language } from '@/lib/translate';
 import type { GrammarToken } from '@/lib/grammarCheck';
 import type { WordCategory } from '@/lib/language';
 import { DEFAULT_LEARN_LANGUAGE, DEFAULT_USER_LANGUAGE, isLanguage, LANGUAGE_CODES } from '@/lib/languages';
 import { nextStepTab, startingProgress, type RecordedActivity } from '@/lib/languageLevels';
 import {
+  alignTexts,
   DIFFICULTY_LEVELS,
   difficultyOptionLabel,
+  FEMALE_VOICE,
   fetchLanguageProgress,
+  MALE_VOICE,
   saveLanguagePreferences,
+  speakText,
   type ProgressMap,
 } from '@/lib/languageTestClient';
 import { reportRateLimit } from '@/lib/rateLimitClient';
@@ -183,9 +190,18 @@ function Language() {
     'idle' | 'loading' | 'success' | 'error'
   >('idle');
   const [translatorMessage, setTranslatorMessage] = useState('');
-  const [translatorSpeakStatus, setTranslatorSpeakStatus] = useState<
-    'idle' | 'loading' | 'error'
-  >('idle');
+  // The speak button whose audio is loading ('top-male', 'bottom-female', ...)
+  const [translatorSpeaking, setTranslatorSpeaking] = useState<string | null>(null);
+  // The top text the bottom box's translation was made from
+  const [translatedFrom, setTranslatedFrom] = useState('');
+  // Matching colors for the two boxes, for the texts they were made for (ColoredTextArea only shows them while
+  // a box still holds that text)
+  const [translatorAlignment, setTranslatorAlignment] = useState<{
+    top: string;
+    bottom: string;
+    topSegments: AlignedSegment[];
+    bottomSegments: AlignedSegment[];
+  } | null>(null);
 
   const [friendMessages, setFriendMessages] = useState<
     { role: 'user' | 'assistant'; content: string }[]
@@ -198,7 +214,10 @@ function Language() {
   // DEFAULT_FRIEND_DIFFICULTY in friend.ts
   const [friendDifficulty, setFriendDifficulty] = useState(3);
   const [friendInputTranslation, setFriendInputTranslation] = useState('');
-  const [friendSpeakStatus, setFriendSpeakStatus] = useState<'idle' | 'loading' | 'error'>('idle');
+  // The voice whose audio is loading, and the friend's voice: the last speak button pressed, also used to read
+  // new messages aloud
+  const [friendSpeaking, setFriendSpeaking] = useState<string | null>(null);
+  const [friendVoice, setFriendVoice] = useState(MALE_VOICE);
   const [friendReplyTranslation, setFriendReplyTranslation] = useState('');
   const [showFriendReplyTranslation, setShowFriendReplyTranslation] = useState(false);
 
@@ -579,46 +598,54 @@ function Language() {
     };
   }, [activeWordCategory]);
 
-  // The language is that of the box being read aloud
-  const handleTranslatorSpeak = async (text: string, language: Language) => {
+  // The language is that of the box being read aloud; the server picks the male or female voice for it
+  const handleTranslatorSpeak = async (text: string, language: Language, voice: string, key: string) => {
     if (!text.trim()) return;
 
-    setTranslatorSpeakStatus('loading');
+    setTranslatorSpeaking(key);
     setTranslatorMessage('');
 
     try {
-      const response = await fetch('/api/speak', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ text, language }),
-      });
-      // A 429 for the AI limit opens the rate limit dialog
-      void reportRateLimit(response);
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to generate speech');
-      }
-
-      const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
-      audio.onended = () => URL.revokeObjectURL(audioUrl);
-      await audio.play();
-
-      setTranslatorSpeakStatus('idle');
+      await speakText(text, voice, language);
     } catch (error) {
-      setTranslatorSpeakStatus('error');
       setTranslatorMessage(
         error instanceof Error ? error.message : 'Failed to play audio. Please try again.'
       );
+    } finally {
+      setTranslatorSpeaking(null);
     }
   };
 
+  // Colors the words of both boxes to match (like Training) once a translation is in and the top text hasn't
+  // changed since, apart from spaces. Waits a moment so typing (which translates at every space) doesn't align
+  // each word as it goes.
+  useEffect(() => {
+    const top = translatorTopText;
+    const bottom = translatorBottomText;
+    if (!top.trim() || !bottom.trim() || translatedFrom.trim() !== top.trim()) return;
+    if (translatorAlignment?.top === top && translatorAlignment.bottom === bottom) return;
+    let isCurrent = true;
+    const timer = setTimeout(() => {
+      alignTexts(top, fromLanguage, bottom, toLanguage).then((segments) => {
+        if (isCurrent && segments) {
+          setTranslatorAlignment({
+            top,
+            bottom,
+            topSegments: segments.sentenceSegments,
+            bottomSegments: segments.translationSegments,
+          });
+        }
+      });
+    }, 700);
+    return () => {
+      isCurrent = false;
+      clearTimeout(timer);
+    };
+  }, [translatorTopText, translatorBottomText, translatedFrom, translatorAlignment, fromLanguage, toLanguage]);
+
   const handleTranslate = async () => {
     if (!translatorTopText.trim()) return;
+    const text = translatorTopText;
 
     setTranslatorStatus('loading');
     setTranslatorMessage('');
@@ -630,7 +657,7 @@ function Language() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          text: translatorTopText,
+          text,
           from: fromLanguage,
           to: toLanguage,
         }),
@@ -645,6 +672,7 @@ function Language() {
       }
 
       setTranslatorBottomText(data.translation);
+      setTranslatedFrom(text);
       setTranslatorStatus('success');
     } catch (error) {
       setTranslatorStatus('error');
@@ -659,12 +687,18 @@ function Language() {
     setTranslatorTopText(translatorBottomText);
     setTranslatorBottomText(translatorTopText);
     setTranslatorMessage('');
+    // The two boxes are still a translation of each other, so their colors swap with them
+    setTranslatedFrom(translatorBottomText);
+    setTranslatorAlignment((prev) =>
+      prev && { top: prev.bottom, bottom: prev.top, topSegments: prev.bottomSegments, bottomSegments: prev.topSegments }
+    );
   };
 
-  const playFriendSpeech = async (text: string) => {
+  // Resolves once playback finishes (not just starts) so callers can chain audio clips instead of overlapping them
+  const playFriendSpeech = async (text: string, voice: string = friendVoice) => {
     if (!text.trim()) return;
 
-    setFriendSpeakStatus('loading');
+    setFriendSpeaking(voice);
 
     try {
       const response = await fetch('/api/speak', {
@@ -672,7 +706,7 @@ function Language() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ text, language: learnLanguage }),
+        body: JSON.stringify({ text, language: learnLanguage, gender: voice }),
       });
       // A 429 for the AI limit opens the rate limit dialog
       void reportRateLimit(response);
@@ -686,8 +720,6 @@ function Language() {
       const audioUrl = URL.createObjectURL(audioBlob);
       const audio = new Audio(audioUrl);
 
-      // Wait for playback to finish (not just start) so callers can chain
-      // audio clips sequentially instead of overlapping them.
       await new Promise<void>((resolve, reject) => {
         audio.onended = () => {
           URL.revokeObjectURL(audioUrl);
@@ -699,13 +731,12 @@ function Language() {
         };
         audio.play().catch(reject);
       });
-
-      setFriendSpeakStatus('idle');
     } catch (error) {
-      setFriendSpeakStatus('error');
       setFriendMessage(
         error instanceof Error ? error.message : 'Failed to play audio. Please try again.'
       );
+    } finally {
+      setFriendSpeaking(null);
     }
   };
 
@@ -743,10 +774,12 @@ function Language() {
     setShowFriendReplyTranslation((prev) => !prev);
   };
 
-  const handleFriendSpeak = () => {
+  // Replays the friend's last message in the chosen voice, which becomes the friend's voice from then on
+  const handleFriendSpeak = (voice: string) => {
+    setFriendVoice(voice);
     const lastAssistantMessage = [...friendMessages].reverse().find((msg) => msg.role === 'assistant');
     if (lastAssistantMessage) {
-      playFriendSpeech(lastAssistantMessage.content);
+      playFriendSpeech(lastAssistantMessage.content, voice);
     }
   };
 
@@ -908,13 +941,43 @@ function Language() {
     }
   }, [isMatch]);
 
+  // The practice tabs are in My Dojo's dark training-hall design (.practice-page in src/app/landing.css); Training
+  // and the tests keep the light panel
+  const practiceHeader =
+    shownTab === 'reading'
+      ? { title: 'Reading & Speaking', intro: 'Press the button below to generate a new sentence based on your vocabulary notes.' }
+      : shownTab === 'writing'
+        ? { title: 'Writing', intro: `Translate the ${learnLanguage} sentence shown below by typing it in the text box.` }
+        : shownTab === 'translator'
+          ? { title: 'Translator', intro: `Type ${fromLanguage} text below and press Translate to see the ${toLanguage} translation.` }
+          : shownTab === 'friend'
+            ? {
+                title: 'Friend',
+                intro: `Chat with a ${learnLanguage}-speaking friend who asks you questions using words from your vocabulary notes. Reply in ${learnLanguage} in the text box below.`,
+              }
+            : null;
+
   return (
-    <div className="w-full">
+    <div className={practiceHeader ? 'landing practice-page' : 'w-full'}>
       {/* Just the open tab: the languages and belt banner are on My Dojo,
           whose cards and "Next step" link open the tabs here */}
-      <section className="py-12 px-6 sm:px-10 lg:px-16 bg-white flex flex-col items-center">
-        <div className="w-full max-w-5xl">
-          <div className="bg-slate-50 rounded-xl border border-slate-200 p-8">
+      <section
+        className={
+          practiceHeader ? 'practice-main' : 'py-12 px-6 sm:px-10 lg:px-16 bg-white flex flex-col items-center'
+        }
+      >
+        {practiceHeader && (
+          <header className="practice-header">
+            <span className="eyebrow">TRAINING HALL · {learnLanguage.toUpperCase()}</span>
+            <h1>{practiceHeader.title}</h1>
+            <p>{practiceHeader.intro}</p>
+            <Link href="/dojo" className="practice-back">
+              <ArrowLeft className="w-4 h-4" aria-hidden="true" /> Back to My Dojo
+            </Link>
+          </header>
+        )}
+        <div className={practiceHeader ? '' : 'w-full max-w-5xl'}>
+          <div className={practiceHeader ? 'practice-panel' : 'bg-slate-50 rounded-xl border border-slate-200 p-8'}>
             {shownTab === null && <p className="text-slate-500">Loading…</p>}
 
             {/* Training Tab */}
@@ -971,10 +1034,6 @@ function Language() {
             {/* Reading & Speaking Tab */}
             {shownTab === 'reading' && (
               <div>
-                <h2 className="text-2xl font-bold text-dark-blue mb-2">Reading & Speaking</h2>
-                <p className="text-slate-600 mb-8">
-                  Press the button below to generate a new sentence based on your vocabulary notes.
-                </p>
                 <LanguageForm answerLanguage={userLanguage} wordLanguage={learnLanguage} />
               </div>
             )}
@@ -982,23 +1041,19 @@ function Language() {
             {/* Writing Tab */}
             {shownTab === 'writing' && (
               <div>
-                <h2 className="text-2xl font-bold text-dark-blue mb-2">Writing</h2>
-                <p className="text-slate-600 mb-8">
-                  Translate the {learnLanguage} sentence shown below by typing it in the text box.
-                </p>
 
                 <div className="space-y-4">
                   {/* Word/Sentence Display */}
                   <div>
                     <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
-                      <span className="text-sm font-medium text-dark-blue">{learnLanguage}</span>
+                      <span className="practice-label">{learnLanguage}</span>
                       <button
                         type="button"
                         onClick={() => setShowVietnamese(!showVietnamese)}
                         disabled={status === 'loading' || !writingWordText}
                         aria-label={showVietnamese ? 'Hide' : 'Show'}
                         title={showVietnamese ? 'Hide' : 'Show'}
-                        className="px-4 py-2 bg-gradient-to-r from-powder-500 to-powder-600 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-powder-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 disabled:hover:scale-100"
+                        className="practice-btn"
                       >
                         {showVietnamese ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                       </button>
@@ -1009,7 +1064,7 @@ function Language() {
                           value={writingWordText}
                           readOnly
                           placeholder="Press Get New Sentence to generate one"
-                          className="flex-1 px-4 py-3 bg-white border border-slate-300 rounded-lg text-dark-blue focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors resize-none text-[2rem]"
+                          className="practice-field practice-text-lg"
                           rows={2}
                         />
                       ) : (
@@ -1017,7 +1072,7 @@ function Language() {
                           value={maskText(writingWordText)}
                           readOnly
                           placeholder="Press Get New Sentence to generate one"
-                          className="flex-1 px-4 py-3 bg-white border border-slate-300 rounded-lg text-dark-blue focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors resize-none text-[2rem]"
+                          className="practice-field practice-text-lg"
                           rows={2}
                         />
                       )}
@@ -1028,7 +1083,7 @@ function Language() {
                           disabled={!writingWordText.trim() || writingSpeakStatus === 'loading'}
                           aria-label="Speak"
                           title="Speak"
-                          className="px-4 py-2 bg-gradient-to-r from-powder-500 to-powder-600 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-powder-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 disabled:hover:scale-100"
+                          className="practice-btn"
                         >
                           {writingSpeakStatus === 'loading' ? (
                             <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block"></span>
@@ -1042,7 +1097,7 @@ function Language() {
                           disabled={!writingWordText.trim() || writingSpeakFemaleStatus === 'loading'}
                           aria-label="Speak (female voice)"
                           title="Speak (female voice)"
-                          className="px-4 py-2 bg-gradient-to-r from-powder-500 to-powder-600 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-powder-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 disabled:hover:scale-100"
+                          className="practice-btn"
                         >
                           {writingSpeakFemaleStatus === 'loading' ? (
                             <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block"></span>
@@ -1056,36 +1111,36 @@ function Language() {
 
                   {/* User Input Box */}
                   <div>
-                    <label className="block text-sm font-medium text-dark-blue mb-2">
+                    <label className="practice-label mb-2">
                       Type {learnLanguage} Here
                     </label>
                     <textarea
                       value={userInput}
                       onChange={(e) => setUserInput(e.target.value)}
                       placeholder={`Type your ${learnLanguage} translation here`}
-                      className="w-full px-4 py-3 bg-white border border-slate-300 rounded-lg text-dark-blue focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors resize-none"
+                      className="practice-field"
                       rows={2}
                     />
-                    <div className={`mt-2 text-sm font-semibold ${isMatch ? 'text-green-600' : 'text-red-600'}`}>
+                    <div className={`mt-2 text-sm font-semibold ${isMatch ? 'text-green-400' : 'text-red-400'}`}>
                       {isMatch ? 'MATCH' : 'No Match'}
                     </div>
                   </div>
 
                   {/* Answer Display */}
                   <div>
-                    <span className="block mb-2 text-sm font-medium text-dark-blue">{userLanguage}</span>
+                    <span className="practice-label mb-2">{userLanguage}</span>
                     <textarea
                       value={writingAnswerText}
                       readOnly
                       placeholder="The translation will appear here"
-                      className="w-full px-4 py-3 bg-white border border-slate-300 rounded-lg text-dark-blue focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors resize-none"
+                      className="practice-field"
                       rows={2}
                     />
                   </div>
 
                   {/* Difficulty / Word Category Selectors */}
                   <div className="flex items-center gap-2 flex-wrap">
-                    <label htmlFor="complexity" className="block text-sm font-medium text-dark-blue">
+                    <label htmlFor="complexity" className="practice-label">
                       Difficulty
                     </label>
                     <select
@@ -1096,7 +1151,7 @@ function Language() {
                         setTotalMatched(0);
                         matchedCurrentWordRef.current = false;
                       }}
-                      className="px-2 py-1 text-sm bg-white border border-slate-300 rounded-lg text-dark-blue focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors"
+                      className="practice-select"
                     >
                       <option value="words">Words</option>
                       <option value="fastPhrases">Fast Phrases</option>
@@ -1110,7 +1165,7 @@ function Language() {
 
                     {complexity === 'words' && (
                       <>
-                        <label htmlFor="wordCategory" className="block text-sm font-medium text-dark-blue">
+                        <label htmlFor="wordCategory" className="practice-label">
                           Word Categories
                         </label>
                         <select
@@ -1121,7 +1176,7 @@ function Language() {
                             setTotalMatched(0);
                             matchedCurrentWordRef.current = false;
                           }}
-                          className="px-2 py-1 text-sm bg-white border border-slate-300 rounded-lg text-dark-blue focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors"
+                          className="practice-select"
                         >
                           {WORD_CATEGORIES.map(({ value, label }) => (
                             <option key={value} value={value}>
@@ -1134,7 +1189,7 @@ function Language() {
 
                     {(complexity === 'words' || complexity === 'fastPhrases') && (
                       <>
-                        <span className="text-sm font-medium text-dark-blue">
+                        <span className="practice-label">
                           Available: {wordCategoryCount ?? '...'}
                         </span>
                       </>
@@ -1142,7 +1197,7 @@ function Language() {
 
                     {(complexity === 'words' || complexity === 'fastPhrases') && (
                       <>
-                        <span className="text-sm font-medium text-dark-blue">
+                        <span className="practice-label">
                           Matched: {totalMatched}
                           {wordCategoryCount ? ` (${Math.round((totalMatched / wordCategoryCount) * 100)}%)` : ''}
                         </span>
@@ -1152,7 +1207,7 @@ function Language() {
 
                   {/* Status Message */}
                   {message && (
-                    <div className={`p-3 rounded-lg text-sm ${status === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                    <div className={`${status === 'error' ? 'practice-error' : 'practice-success'}`}>
                       {message}
                     </div>
                   )}
@@ -1163,7 +1218,7 @@ function Language() {
                       type="button"
                       onClick={handleWritingGetNewClick}
                       disabled={status === 'loading'}
-                      className="w-full px-4 py-2 bg-gradient-to-r from-powder-500 to-powder-600 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-powder-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 disabled:hover:scale-100"
+                      className="practice-btn practice-btn-wide"
                     >
                       {status === 'loading' ? (
                         <span className="flex items-center justify-center gap-2">
@@ -1182,7 +1237,7 @@ function Language() {
                       type="button"
                       onClick={handleWritingFlagAndGetNew}
                       disabled={status === 'loading' || !(vietnameseText || englishSource)}
-                      className="w-full px-4 py-2 bg-white border border-powder-500 text-powder-600 font-bold rounded-lg hover:bg-powder-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="practice-btn-outline practice-btn-wide"
                     >
                       Flag Word - Get New
                     </button>
@@ -1190,7 +1245,7 @@ function Language() {
                       type="button"
                       onClick={handleWritingKnownAndGetNew}
                       disabled={status === 'loading' || !(vietnameseText || englishSource)}
-                      className="w-full px-4 py-2 bg-white border border-slate-300 text-dark-blue font-bold rounded-lg hover:bg-slate-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="practice-btn-ghost practice-btn-wide"
                     >
                       Known Word - Get New
                     </button>
@@ -1202,26 +1257,23 @@ function Language() {
             {/* Translator Tab */}
             {shownTab === 'translator' && (
               <div>
-                <h2 className="text-2xl font-bold text-dark-blue mb-2">Translator</h2>
-                <p className="text-slate-600 mb-8">
-                  Type {fromLanguage} text below and press Translate to see the {toLanguage} translation.
-                </p>
 
                 <div className="space-y-6">
                   {/* From Field (top, editable) */}
                   <div>
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
-                      <label htmlFor="translatorFrom" className="block text-sm font-medium text-dark-blue">
+                      <label htmlFor="translatorFrom" className="practice-label">
                         From {fromLanguage}
                       </label>
                     </div>
                     <div className="flex flex-col sm:flex-row gap-3">
-                      <textarea
+                      <ColoredTextArea
                         id="translatorFrom"
                         name="translatorFrom"
                         lang={LANGUAGE_CODES[fromLanguage]}
                         value={translatorTopText}
-                        onChange={(e) => setTranslatorTopText(e.target.value)}
+                        onChange={setTranslatorTopText}
+                        segments={translatorAlignment?.top === translatorTopText ? translatorAlignment.topSegments : null}
                         onKeyDown={(e) => {
                           if (e.key === ' ') {
                             handleTranslate();
@@ -1229,22 +1281,37 @@ function Language() {
                         }}
                         placeholder={`Type ${fromLanguage} text here`}
                         rows={3}
-                        className="flex-1 px-4 py-3 bg-white border border-slate-300 rounded-lg text-dark-blue placeholder-slate-400 focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors resize-none"
                       />
-                      <button
-                        type="button"
-                        onClick={() => handleTranslatorSpeak(translatorTopText, fromLanguage)}
-                        disabled={!translatorTopText.trim() || translatorSpeakStatus === 'loading'}
-                        aria-label="Speak"
-                        title="Speak"
-                        className="px-4 py-2 bg-gradient-to-r from-powder-500 to-powder-600 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-powder-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 disabled:hover:scale-100 flex-shrink-0 sm:self-start"
-                      >
-                        {translatorSpeakStatus === 'loading' ? (
-                          <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block"></span>
-                        ) : (
-                          <span aria-hidden="true">🔊 ♂</span>
-                        )}
-                      </button>
+                      <div className="flex flex-row sm:flex-col gap-3 flex-shrink-0 sm:self-start">
+                        <button
+                          type="button"
+                          onClick={() => handleTranslatorSpeak(translatorTopText, fromLanguage, MALE_VOICE, 'top-male')}
+                          disabled={!translatorTopText.trim() || translatorSpeaking !== null}
+                          aria-label="Speak"
+                          title="Speak"
+                          className="practice-btn"
+                        >
+                          {translatorSpeaking === 'top-male' ? (
+                            <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block"></span>
+                          ) : (
+                            <span aria-hidden="true">🔊 ♂</span>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleTranslatorSpeak(translatorTopText, fromLanguage, FEMALE_VOICE, 'top-female')}
+                          disabled={!translatorTopText.trim() || translatorSpeaking !== null}
+                          aria-label="Speak (female voice)"
+                          title="Speak (female voice)"
+                          className="practice-btn"
+                        >
+                          {translatorSpeaking === 'top-female' ? (
+                            <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block"></span>
+                          ) : (
+                            <span aria-hidden="true">🔊 ♀</span>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -1255,7 +1322,7 @@ function Language() {
                       onClick={handleSwap}
                       aria-label="Swap"
                       title="Swap"
-                      className="px-4 py-2 text-sm bg-powder-500 text-white rounded-lg hover:bg-powder-600 transition-colors"
+                      className="practice-btn practice-btn-small"
                     >
                       <ArrowUpDown className="w-4 h-4" />
                     </button>
@@ -1264,41 +1331,61 @@ function Language() {
                   {/* To Field (bottom, read-only) */}
                   <div>
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
-                      <label htmlFor="translatorTo" className="block text-sm font-medium text-dark-blue">
+                      <label htmlFor="translatorTo" className="practice-label">
                         To {toLanguage}
                       </label>
                     </div>
                     <div className="flex flex-col sm:flex-row gap-3">
-                      <textarea
+                      <ColoredTextArea
                         id="translatorTo"
                         name="translatorTo"
                         lang={LANGUAGE_CODES[toLanguage]}
                         value={translatorBottomText}
+                        segments={
+                          translatorAlignment?.bottom === translatorBottomText && translatorAlignment.top === translatorTopText
+                            ? translatorAlignment.bottomSegments
+                            : null
+                        }
                         readOnly
                         placeholder="The translation will appear here"
                         rows={3}
-                        className="flex-1 px-4 py-3 bg-white border border-slate-300 rounded-lg text-dark-blue placeholder-slate-400 focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors resize-none"
                       />
-                      <button
-                        type="button"
-                        onClick={() => handleTranslatorSpeak(translatorBottomText, toLanguage)}
-                        disabled={!translatorBottomText.trim() || translatorSpeakStatus === 'loading'}
-                        aria-label="Speak"
-                        title="Speak"
-                        className="px-4 py-2 bg-gradient-to-r from-powder-500 to-powder-600 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-powder-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 disabled:hover:scale-100 flex-shrink-0 sm:self-start"
-                      >
-                        {translatorSpeakStatus === 'loading' ? (
-                          <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block"></span>
-                        ) : (
-                          <span aria-hidden="true">🔊 ♂</span>
-                        )}
-                      </button>
+                      <div className="flex flex-row sm:flex-col gap-3 flex-shrink-0 sm:self-start">
+                        <button
+                          type="button"
+                          onClick={() => handleTranslatorSpeak(translatorBottomText, toLanguage, MALE_VOICE, 'bottom-male')}
+                          disabled={!translatorBottomText.trim() || translatorSpeaking !== null}
+                          aria-label="Speak"
+                          title="Speak"
+                          className="practice-btn"
+                        >
+                          {translatorSpeaking === 'bottom-male' ? (
+                            <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block"></span>
+                          ) : (
+                            <span aria-hidden="true">🔊 ♂</span>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleTranslatorSpeak(translatorBottomText, toLanguage, FEMALE_VOICE, 'bottom-female')}
+                          disabled={!translatorBottomText.trim() || translatorSpeaking !== null}
+                          aria-label="Speak (female voice)"
+                          title="Speak (female voice)"
+                          className="practice-btn"
+                        >
+                          {translatorSpeaking === 'bottom-female' ? (
+                            <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block"></span>
+                          ) : (
+                            <span aria-hidden="true">🔊 ♀</span>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
 
                   {/* Status Messages */}
                   {translatorMessage && (
-                    <div className="p-4 rounded-lg bg-red-100 border border-red-300 text-red-800">
+                    <div className="practice-error">
                       {translatorMessage}
                     </div>
                   )}
@@ -1309,7 +1396,7 @@ function Language() {
                       type="button"
                       onClick={() => handleTranslate()}
                       disabled={!translatorTopText.trim() || translatorStatus === 'loading'}
-                      className="w-full px-4 py-2 bg-gradient-to-r from-powder-500 to-powder-600 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-powder-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 disabled:hover:scale-100"
+                      className="practice-btn practice-btn-wide"
                     >
                       {translatorStatus === 'loading' ? (
                         <span className="flex items-center justify-center gap-2">
@@ -1328,24 +1415,19 @@ function Language() {
             {/* Friend Tab */}
             {shownTab === 'friend' && (
               <div>
-                <h2 className="text-2xl font-bold text-dark-blue mb-2">Friend</h2>
-                <p className="text-slate-600 mb-8">
-                  Chat with a {learnLanguage}-speaking friend who asks you questions using words from your
-                  vocabulary notes. Reply in {learnLanguage} in the text box below.
-                </p>
 
                 <div className="space-y-4">
                   {/* Difficulty Selector */}
                   <div className="flex items-center gap-4 flex-wrap">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <label htmlFor="friendDifficulty" className="block text-sm font-medium text-dark-blue">
+                      <label htmlFor="friendDifficulty" className="practice-label">
                         Difficulty
                       </label>
                       <select
                         id="friendDifficulty"
                         value={String(friendDifficulty)}
                         onChange={(e) => setFriendDifficulty(Number(e.target.value))}
-                        className="px-2 py-1 text-sm bg-white border border-slate-300 rounded-lg text-dark-blue focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors"
+                        className="practice-select"
                       >
                         {DIFFICULTY_LEVELS.map((level) => (
                           <option key={level} value={String(level)}>
@@ -1362,18 +1444,18 @@ function Language() {
                         shown in the "I speak" language */}
                     <div
                       translate="no"
-                      className="flex-1 space-y-3 max-h-96 overflow-y-auto p-4 bg-white border border-slate-300 rounded-lg"
+                      className="practice-chat"
                     >
                       {friendMessages.length === 0 ? (
-                        <p className="text-slate-400 text-sm">Press Start Chat to begin.</p>
+                        <p className="practice-hint">Press Start Chat to begin.</p>
                       ) : (
                         friendMessages.map((msg, i) => (
                           <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                             <div
-                              className={`max-w-[80%] px-4 py-2 rounded-lg whitespace-pre-wrap ${
+                              className={`chat-bubble ${
                                 msg.role === 'user'
-                                  ? 'bg-powder-500 text-white'
-                                  : 'bg-slate-100 text-dark-blue'
+                                  ? 'chat-bubble-me'
+                                  : 'chat-bubble-friend'
                               }`}
                             >
                               {msg.role === 'user' && friendCorrections[i] ? (
@@ -1403,16 +1485,32 @@ function Language() {
                     <div className="flex flex-row sm:flex-col gap-3 flex-shrink-0 sm:self-end">
                       <button
                         type="button"
-                        onClick={handleFriendSpeak}
-                        disabled={!friendMessages.some((msg) => msg.role === 'assistant') || friendSpeakStatus === 'loading'}
+                        onClick={() => handleFriendSpeak(MALE_VOICE)}
+                        disabled={!friendMessages.some((msg) => msg.role === 'assistant') || friendSpeaking !== null}
                         aria-label="Speak"
                         title="Speak"
-                        className="px-4 py-2 bg-gradient-to-r from-powder-500 to-powder-600 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-powder-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 disabled:hover:scale-100"
+                        aria-pressed={friendVoice === MALE_VOICE}
+                        className="practice-btn"
                       >
-                        {friendSpeakStatus === 'loading' ? (
+                        {friendSpeaking === MALE_VOICE ? (
                           <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block"></span>
                         ) : (
                           <span aria-hidden="true">🔊 ♂</span>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleFriendSpeak(FEMALE_VOICE)}
+                        disabled={!friendMessages.some((msg) => msg.role === 'assistant') || friendSpeaking !== null}
+                        aria-label="Speak (female voice)"
+                        title="Speak (female voice)"
+                        aria-pressed={friendVoice === FEMALE_VOICE}
+                        className="practice-btn"
+                      >
+                        {friendSpeaking === FEMALE_VOICE ? (
+                          <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block"></span>
+                        ) : (
+                          <span aria-hidden="true">🔊 ♀</span>
                         )}
                       </button>
                       <button
@@ -1421,7 +1519,7 @@ function Language() {
                         disabled={!friendMessages.some((msg) => msg.role === 'assistant')}
                         aria-label={showFriendReplyTranslation ? 'Hide' : 'Show'}
                         title={showFriendReplyTranslation ? 'Hide' : 'Show'}
-                        className="px-4 py-2 bg-gradient-to-r from-powder-500 to-powder-600 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-powder-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 disabled:hover:scale-100"
+                        className="practice-btn"
                       >
                         {showFriendReplyTranslation ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                       </button>
@@ -1436,7 +1534,7 @@ function Language() {
                         readOnly
                         placeholder="The translation will appear here"
                         rows={3}
-                        className="flex-1 px-4 py-3 bg-white border border-slate-300 rounded-lg text-dark-blue placeholder-slate-400 focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors resize-none"
+                        className="practice-field"
                       />
                       {/* Invisible spacer matching the chat window's button column so the
                           translation box lines up with the chat window above it. */}
@@ -1444,18 +1542,13 @@ function Language() {
                         aria-hidden="true"
                         className="invisible flex flex-row sm:flex-col gap-3 flex-shrink-0"
                       >
-                        <button
-                          type="button"
-                          tabIndex={-1}
-                          className="px-4 py-2 font-bold rounded-lg"
-                        >
-                          Speak
+                        <button type="button" tabIndex={-1} className="practice-btn">
+                          🔊 ♂
                         </button>
-                        <button
-                          type="button"
-                          tabIndex={-1}
-                          className="px-4 py-2 font-bold rounded-lg"
-                        >
+                        <button type="button" tabIndex={-1} className="practice-btn">
+                          🔊 ♀
+                        </button>
+                        <button type="button" tabIndex={-1} className="practice-btn">
                           {showFriendReplyTranslation ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                         </button>
                       </div>
@@ -1464,7 +1557,7 @@ function Language() {
 
                   {/* Status Message */}
                   {friendMessage && (
-                    <div className="p-4 rounded-lg bg-red-100 border border-red-300 text-red-800">
+                    <div className="practice-error">
                       {friendMessage}
                     </div>
                   )}
@@ -1474,7 +1567,7 @@ function Language() {
                       type="button"
                       onClick={handleFriendStart}
                       disabled={friendStatus === 'loading'}
-                      className="w-full px-4 py-2 bg-gradient-to-r from-powder-500 to-powder-600 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-powder-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 disabled:hover:scale-100"
+                      className="practice-btn practice-btn-wide"
                     >
                       {friendStatus === 'loading' ? (
                         <span className="flex items-center justify-center gap-2">
@@ -1502,13 +1595,13 @@ function Language() {
                           }}
                           placeholder={`Type your response in ${learnLanguage}`}
                           rows={2}
-                          className="flex-1 px-4 py-3 bg-white border border-slate-300 rounded-lg text-dark-blue placeholder-slate-400 focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors resize-none"
+                          className="practice-field"
                         />
                         <button
                           type="button"
                           onClick={handleFriendSend}
                           disabled={!friendInput.trim() || friendStatus === 'loading'}
-                          className="px-4 py-2 bg-gradient-to-r from-powder-500 to-powder-600 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-powder-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 disabled:hover:scale-100 flex-shrink-0 sm:self-start"
+                          className="practice-btn flex-shrink-0 sm:self-start"
                         >
                           {friendStatus === 'loading' ? (
                             <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block"></span>
@@ -1522,7 +1615,7 @@ function Language() {
                       <div>
                         <label
                           htmlFor="friendInputTranslation"
-                          className="block mb-2 text-sm font-medium text-dark-blue"
+                          className="practice-label mb-2"
                         >
                           {userLanguage} Translation
                         </label>
@@ -1532,7 +1625,7 @@ function Language() {
                           readOnly
                           placeholder="The translation will appear here as you type"
                           rows={2}
-                          className="w-full px-4 py-3 bg-white border border-slate-300 rounded-lg text-dark-blue placeholder-slate-400 focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors resize-none"
+                          className="practice-field"
                         />
                       </div>
                     </div>

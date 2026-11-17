@@ -88,6 +88,19 @@ export default async function AccountPage({
                 {user.userName}
               </dd>
             </div>
+            {/* Admin or User (src/lib/roles.ts), read from the database with the session */}
+            <div className="flex justify-between items-center gap-4 px-4 py-3">
+              <dt className="text-sm font-medium text-slate-500">Account Role</dt>
+              <dd>
+                <span
+                  className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
+                    isAdmin(user.role) ? 'bg-dark-blue text-white' : 'bg-slate-200 text-slate-700'
+                  }`}
+                >
+                  {user.role}
+                </span>
+              </dd>
+            </div>
             <div className="flex justify-between items-center gap-4 px-4 py-3">
               <dt className="text-sm font-medium text-slate-500">Account Status</dt>
               <dd>

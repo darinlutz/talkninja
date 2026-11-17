@@ -5,7 +5,10 @@ import { Eye, EyeOff } from 'lucide-react';
 import type { Language } from '@/lib/translate';
 import type { WordCategory } from '@/lib/language';
 import { DIFFICULTY_LEVELS, difficultyOptionLabel } from '@/lib/languageTestClient';
+import { alignTexts, FEMALE_VOICE, MALE_VOICE, speakText } from '@/lib/languageTestClient';
 import { reportRateLimit } from '@/lib/rateLimitClient';
+import ColoredTextArea from '@/components/ColoredTextArea';
+import type { AlignedSegment } from '@/lib/wordAlignment';
 
 const WORD_CATEGORIES: { value: WordCategory; label: string }[] = [
   { value: 'activities', label: 'Activities' },
@@ -72,6 +75,17 @@ export default function LanguageForm({ wordLanguage, answerLanguage }: LanguageF
   const [englishSource, setEnglishSource] = useState('');
   const [word, setWord] = useState('');
   const [answerText, setAnswerText] = useState('');
+  // The generated item (its vietnameseSource) each field's text was translated from, so the two are only
+  // aligned once both belong to the same item
+  const [wordFor, setWordFor] = useState('');
+  const [answerFor, setAnswerFor] = useState('');
+  // Matching colors for the word field and its translation (like Training), for the texts they were made for
+  const [alignment, setAlignment] = useState<{
+    key: string;
+    sentenceSegments: AlignedSegment[];
+    translationSegments: AlignedSegment[];
+  } | null>(null);
+  const [speakFemaleStatus, setSpeakFemaleStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
   const [speakStatus, setSpeakStatus] = useState<'idle' | 'loading' | 'error'>('idle');
@@ -109,37 +123,18 @@ export default function LanguageForm({ wordLanguage, answerLanguage }: LanguageF
 
   const maskText = (text: string) => text.replace(/\S/g, '•');
 
-  const handleSpeak = async () => {
+  // The server picks the male or female voice for the language (src/lib/voiceSettings.ts)
+  const handleSpeak = async (voice: string, setVoiceStatus: (status: 'idle' | 'loading' | 'error') => void) => {
     if (!word.trim()) return;
 
-    setSpeakStatus('loading');
+    setVoiceStatus('loading');
     setMessage('');
 
     try {
-      const response = await fetch('/api/speak', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ text: word, language: wordLanguage }),
-      });
-      // A 429 for the AI limit opens the rate limit dialog
-      void reportRateLimit(response);
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to generate speech');
-      }
-
-      const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
-      audio.onended = () => URL.revokeObjectURL(audioUrl);
-      await audio.play();
-
-      setSpeakStatus('idle');
+      await speakText(word, voice, wordLanguage);
+      setVoiceStatus('idle');
     } catch (error) {
-      setSpeakStatus('error');
+      setVoiceStatus('error');
       setMessage(
         error instanceof Error ? error.message : 'Failed to play audio. Please try again.'
       );
@@ -350,7 +345,10 @@ export default function LanguageForm({ wordLanguage, answerLanguage }: LanguageF
 
     translateText(vietnameseSource, 'Vietnamese', wordLanguage)
       .then((text) => {
-        if (isCurrent) setWord(text);
+        if (isCurrent) {
+          setWord(text);
+          setWordFor(vietnameseSource);
+        }
       })
       .catch((error) => {
         if (isCurrent) {
@@ -372,7 +370,10 @@ export default function LanguageForm({ wordLanguage, answerLanguage }: LanguageF
 
     resolveAnswerText(vietnameseSource, englishSource, answerLanguage)
       .then((text) => {
-        if (isCurrent) setAnswerText(text);
+        if (isCurrent) {
+          setAnswerText(text);
+          setAnswerFor(vietnameseSource);
+        }
       })
       .catch((error) => {
         if (isCurrent) {
@@ -386,6 +387,27 @@ export default function LanguageForm({ wordLanguage, answerLanguage }: LanguageF
       isCurrent = false;
     };
   }, [vietnameseSource, englishSource, answerLanguage]);
+
+  // Colors each word to match its translation once both fields hold the same item's text (one alignment per
+  // item and language pair; editing a field drops its colors, see ColoredTextArea)
+  const alignmentKey =
+    vietnameseSource && wordFor === vietnameseSource && answerFor === vietnameseSource
+      ? `${vietnameseSource}|${wordLanguage}|${answerLanguage}`
+      : '';
+  useEffect(() => {
+    if (!alignmentKey || alignment?.key === alignmentKey) return;
+    let isCurrent = true;
+    const key = alignmentKey;
+    alignTexts(word, wordLanguage, answerText, answerLanguage).then((segments) => {
+      if (isCurrent && segments) setAlignment({ key, ...segments });
+    });
+    return () => {
+      isCurrent = false;
+    };
+    // Aligned once per item: word/answerText are that item's texts when alignmentKey is set
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [alignmentKey]);
+  const currentAlignment = alignmentKey && alignment?.key === alignmentKey ? alignment : null;
 
   // Fast Phrases and General Phrases have no Word Categories combobox of
   // their own; they always pull from their own fixed category, so the
@@ -432,47 +454,64 @@ export default function LanguageForm({ wordLanguage, answerLanguage }: LanguageF
     <div className="space-y-6">
       {/* Word/Sentence Field */}
       <div>
-        <span className="block mb-2 text-sm font-medium text-dark-blue">{wordLanguage}</span>
+        <span className="practice-label mb-2">{wordLanguage}</span>
         <div className="flex flex-col sm:flex-row gap-3">
-          <textarea
+          <ColoredTextArea
             id="word"
             name="word"
             value={word}
-            onChange={(e) => setWord(e.target.value)}
+            onChange={setWord}
+            segments={currentAlignment?.sentenceSegments ?? null}
             placeholder="Press Get New Sentence to generate one"
             rows={2}
-            className="flex-1 px-4 py-3 bg-white border border-slate-300 rounded-lg text-dark-blue placeholder-slate-400 focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors resize-none text-[2rem]"
+            large
           />
-          <button
-            type="button"
-            onClick={handleSpeak}
-            disabled={!word.trim() || speakStatus === 'loading'}
-            aria-label="Speak"
-            title="Speak"
-            className="px-4 py-2 bg-gradient-to-r from-powder-500 to-powder-600 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-powder-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 disabled:hover:scale-100 flex-shrink-0 sm:self-start"
-          >
-            {speakStatus === 'loading' ? (
-              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block"></span>
-            ) : (
-              <span aria-hidden="true">🔊 ♂</span>
-            )}
-          </button>
+          <div className="flex flex-row sm:flex-col gap-3 flex-shrink-0 sm:self-start">
+            <button
+              type="button"
+              onClick={() => handleSpeak(MALE_VOICE, setSpeakStatus)}
+              disabled={!word.trim() || speakStatus === 'loading'}
+              aria-label="Speak"
+              title="Speak"
+              className="practice-btn"
+            >
+              {speakStatus === 'loading' ? (
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block"></span>
+              ) : (
+                <span aria-hidden="true">🔊 ♂</span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSpeak(FEMALE_VOICE, setSpeakFemaleStatus)}
+              disabled={!word.trim() || speakFemaleStatus === 'loading'}
+              aria-label="Speak (female voice)"
+              title="Speak (female voice)"
+              className="practice-btn"
+            >
+              {speakFemaleStatus === 'loading' ? (
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block"></span>
+              ) : (
+                <span aria-hidden="true">🔊 ♀</span>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Answer Field */}
       <div>
-        <span className="block mb-2 text-sm font-medium text-dark-blue">{answerLanguage}</span>
+        <span className="practice-label mb-2">{answerLanguage}</span>
         <div className="flex flex-col sm:flex-row gap-3">
-          <textarea
+          <ColoredTextArea
             id="answer"
             name="answer"
             value={showAnswer ? answerText : maskText(answerText)}
-            onChange={(e) => showAnswer && setAnswerText(e.target.value)}
+            onChange={(text) => showAnswer && setAnswerText(text)}
+            segments={showAnswer ? (currentAlignment?.translationSegments ?? null) : null}
             readOnly={!showAnswer}
             placeholder="The translation will appear here"
             rows={2}
-            className="flex-1 px-4 py-3 bg-white border border-slate-300 rounded-lg text-dark-blue placeholder-slate-400 focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors resize-none"
           />
           <button
             type="button"
@@ -480,7 +519,7 @@ export default function LanguageForm({ wordLanguage, answerLanguage }: LanguageF
             disabled={!answerText.trim()}
             aria-label={showAnswer ? 'Hide' : 'Show'}
             title={showAnswer ? 'Hide' : 'Show'}
-            className="px-4 py-2 bg-gradient-to-r from-powder-500 to-powder-600 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-powder-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 disabled:hover:scale-100 flex-shrink-0 sm:self-start"
+            className="practice-btn flex-shrink-0 sm:self-start"
           >
             {showAnswer ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
           </button>
@@ -489,14 +528,14 @@ export default function LanguageForm({ wordLanguage, answerLanguage }: LanguageF
 
       {/* Status Messages */}
       {message && (
-        <div className="p-4 rounded-lg bg-red-100 border border-red-300 text-red-800">
+        <div className="practice-error">
           {message}
         </div>
       )}
 
       {/* Difficulty / Word Categories Selectors */}
       <div className="flex items-center gap-2 flex-wrap">
-        <label htmlFor="mode" className="block text-sm font-medium text-dark-blue">
+        <label htmlFor="mode" className="practice-label">
           Difficulty
         </label>
         <select
@@ -504,7 +543,7 @@ export default function LanguageForm({ wordLanguage, answerLanguage }: LanguageF
           name="mode"
           value={mode}
           onChange={(e) => setMode(e.target.value as typeof mode)}
-          className="px-2 py-1 text-sm bg-white border border-slate-300 rounded-lg text-dark-blue focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors"
+          className="practice-select"
         >
           <option value="words">Words</option>
           <option value="fastPhrases">Fast Phrases</option>
@@ -518,7 +557,7 @@ export default function LanguageForm({ wordLanguage, answerLanguage }: LanguageF
 
         {mode === 'words' && (
           <>
-            <label htmlFor="wordCategory" className="block text-sm font-medium text-dark-blue">
+            <label htmlFor="wordCategory" className="practice-label">
               Word Categories
             </label>
             <select
@@ -526,7 +565,7 @@ export default function LanguageForm({ wordLanguage, answerLanguage }: LanguageF
               name="wordCategory"
               value={wordCategory}
               onChange={(e) => setWordCategory(e.target.value as WordCategory)}
-              className="px-2 py-1 text-sm bg-white border border-slate-300 rounded-lg text-dark-blue focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors"
+              className="practice-select"
             >
               {WORD_CATEGORIES.map(({ value, label }) => (
                 <option key={value} value={value}>
@@ -539,10 +578,10 @@ export default function LanguageForm({ wordLanguage, answerLanguage }: LanguageF
 
         {(mode === 'words' || mode === 'fastPhrases' || mode === 'generalPhrases') && (
           <>
-            <span className="text-sm font-medium text-dark-blue">
+            <span className="practice-label">
               Available: {wordCategoryCount ?? '...'}
             </span>
-            <span className="text-sm font-medium text-dark-blue">
+            <span className="practice-label">
               Shown: {wordsShownCount}
               {wordCategoryCount ? ` (${Math.round((wordsShownCount / wordCategoryCount) * 100)}%)` : ''}
             </span>
@@ -556,7 +595,7 @@ export default function LanguageForm({ wordLanguage, answerLanguage }: LanguageF
           type="button"
           onClick={handleGetNewClick}
           disabled={status === 'loading'}
-          className="w-full px-4 py-2 bg-gradient-to-r from-powder-500 to-powder-600 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-powder-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 disabled:hover:scale-100"
+          className="practice-btn practice-btn-wide"
         >
           {status === 'loading' ? (
             <span className="flex items-center justify-center gap-2">
@@ -575,7 +614,7 @@ export default function LanguageForm({ wordLanguage, answerLanguage }: LanguageF
           type="button"
           onClick={handleFlagAndGetNew}
           disabled={status === 'loading' || !(vietnameseSource || englishSource)}
-          className="w-full px-4 py-2 bg-white border border-powder-500 text-powder-600 font-bold rounded-lg hover:bg-powder-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="practice-btn-outline practice-btn-wide"
         >
           Flag Word - Get New
         </button>
@@ -583,7 +622,7 @@ export default function LanguageForm({ wordLanguage, answerLanguage }: LanguageF
           type="button"
           onClick={handleKnownAndGetNew}
           disabled={status === 'loading' || !(vietnameseSource || englishSource)}
-          className="w-full px-4 py-2 bg-white border border-slate-300 text-dark-blue font-bold rounded-lg hover:bg-slate-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="practice-btn-ghost practice-btn-wide"
         >
           Known Word - Get New
         </button>

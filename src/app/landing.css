@@ -258,3 +258,52 @@
     transition: none !important;
   }
 }
+/* The Language page's practice tabs (Reading & Speaking, Writing, Translator, Friend; src/app/language/page.tsx,
+   LanguageForm, ColoredTextArea): the My Dojo training hall's dark page, with the tab in a dark panel */
+.landing.practice-page { min-height: calc(100vh - 4rem); background: radial-gradient(ellipse at top, color-mix(in oklab, var(--primary) 22%, oklch(0.16 0.04 262)) 0%, oklch(0.13 0.035 262) 60%); color: var(--ink-inverse); }
+.landing .practice-main { width: min(960px, calc(100% - 32px)); margin-inline: auto; padding-block: 3rem 4.5rem; }
+.landing .practice-header { text-align: center; display: grid; justify-items: center; gap: .6rem; margin-bottom: 2.25rem; }
+.landing .practice-header .eyebrow { color: var(--belt-blue); letter-spacing: .12em; }
+.landing .practice-header h1 { font-size: clamp(2.1rem, 5vw, 3.25rem); font-weight: 700; letter-spacing: -.03em; line-height: 1.05; }
+.landing .practice-header p { color: var(--inverse-muted); max-width: 40rem; line-height: 1.6; }
+.landing .practice-back { display: inline-flex; align-items: center; gap: .35rem; font-size: .8rem; font-weight: 600; color: oklch(0.75 0.15 245); }
+.landing a.practice-back:hover { text-decoration: underline; color: oklch(0.75 0.15 245); }
+.landing .practice-panel { border-radius: 1.25rem; border: 1px solid oklch(1 0 0 / 10%); background: oklch(0.19 0.04 262 / 92%); box-shadow: 0 30px 80px -40px color-mix(in oklab, var(--primary) 60%, transparent); padding: 2rem; }
+.landing .practice-label { display: block; font-size: .8rem; font-weight: 600; letter-spacing: .02em; color: var(--inverse-muted); }
+.landing .practice-hint { font-size: .875rem; color: oklch(0.62 0.03 250); }
+.landing .practice-field { display: block; flex: 1 1 auto; width: 100%; min-width: 0; padding: .75rem 1rem; border-radius: .75rem; border: 1px solid oklch(1 0 0 / 14%); background: oklch(0.13 0.035 262); color: var(--ink-inverse); font-size: 1rem; line-height: 1.6; resize: none; white-space: pre-wrap; overflow-wrap: break-word; transition: border-color .2s, box-shadow .2s; }
+.landing .practice-field::placeholder { color: oklch(0.6 0.03 250); }
+.landing .practice-field:focus { outline: none; border-color: color-mix(in oklab, var(--primary) 80%, white); box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 35%, transparent); }
+.landing .practice-text-lg, .landing .practice-text-lg .practice-field { font-size: 2rem; line-height: 1.35; }
+.landing .practice-box { min-height: 7.5rem; }
+.landing .practice-box-sm { min-height: 4.5rem; }
+/* ColoredTextArea: the colored copy and the textarea share one grid cell, so they're the same size */
+.landing .colored-field { display: grid; flex: 1 1 auto; min-width: 0; }
+.landing .colored-field > * { grid-area: 1 / 1; scrollbar-gutter: stable; }
+.landing .colored-field-backdrop { overflow: hidden; pointer-events: none; }
+.landing .colored-field-input { background: transparent; color: transparent; caret-color: var(--ink-inverse); position: relative; }
+.landing .colored-field-input::selection { color: transparent; background: color-mix(in oklab, var(--primary) 45%, transparent); }
+.landing .practice-select { padding: .35rem .6rem; font-size: .875rem; border-radius: .5rem; border: 1px solid oklch(1 0 0 / 16%); background: oklch(0.13 0.035 262); color: var(--ink-inverse); }
+.landing .practice-select:focus { outline: none; border-color: color-mix(in oklab, var(--primary) 80%, white); }
+.landing .practice-select option { background: oklch(0.19 0.04 262); color: var(--ink-inverse); }
+.landing .practice-btn, .landing .practice-btn-outline, .landing .practice-btn-ghost { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; padding: .6rem 1rem; border-radius: .75rem; font-weight: 700; white-space: nowrap; transition: transform .2s, box-shadow .2s, background .2s, border-color .2s; }
+.landing .practice-btn { color: white; background: linear-gradient(135deg, var(--primary), color-mix(in oklab, var(--belt-blue) 80%, white)); box-shadow: 0 8px 22px -10px color-mix(in oklab, var(--primary) 80%, transparent); }
+.landing .practice-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 14px 30px -10px color-mix(in oklab, var(--primary) 90%, transparent); }
+.landing .practice-btn-outline { border: 1px solid color-mix(in oklab, var(--primary) 70%, white); color: oklch(0.82 0.1 250); background: color-mix(in oklab, var(--primary) 10%, transparent); }
+.landing .practice-btn-outline:hover:not(:disabled) { background: color-mix(in oklab, var(--primary) 22%, transparent); }
+.landing .practice-btn-ghost { border: 1px solid oklch(1 0 0 / 16%); color: var(--ink-inverse); background: oklch(1 0 0 / 5%); }
+.landing .practice-btn-ghost:hover:not(:disabled) { background: oklch(1 0 0 / 10%); }
+.landing .practice-btn:disabled, .landing .practice-btn-outline:disabled, .landing .practice-btn-ghost:disabled { opacity: .45; cursor: not-allowed; }
+.landing .practice-btn-wide { width: 100%; }
+.landing .practice-btn-small { padding: .45rem .8rem; font-size: .875rem; }
+.landing .practice-error { padding: .9rem 1rem; border-radius: .75rem; border: 1px solid oklch(0.65 0.2 25 / 50%); background: oklch(0.35 0.12 25 / 35%); color: oklch(0.9 0.06 25); font-size: .9rem; }
+.landing .practice-success { padding: .9rem 1rem; border-radius: .75rem; border: 1px solid oklch(0.7 0.17 150 / 50%); background: oklch(0.35 0.1 150 / 35%); color: oklch(0.92 0.08 150); font-size: .9rem; }
+.landing .practice-chat { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: .75rem; max-height: 24rem; overflow-y: auto; padding: 1rem; border-radius: .75rem; border: 1px solid oklch(1 0 0 / 14%); background: oklch(0.13 0.035 262); }
+.landing .chat-bubble { max-width: 80%; padding: .6rem 1rem; white-space: pre-wrap; line-height: 1.55; }
+.landing .chat-bubble-friend { background: oklch(1 0 0 / 8%); color: var(--ink-inverse); border-radius: 0 .9rem .9rem .9rem; }
+.landing .chat-bubble-me { background: var(--primary); color: white; border-radius: .9rem 0 .9rem .9rem; }
+@media (max-width: 700px) {
+  .landing .practice-main { padding-block: 2rem 3rem; }
+  .landing .practice-panel { padding: 1.25rem; border-radius: 1rem; }
+  .landing .practice-text-lg, .landing .practice-text-lg .practice-field { font-size: 1.6rem; }
+}
