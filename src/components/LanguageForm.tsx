@@ -8,6 +8,7 @@ import { DIFFICULTY_LEVELS, difficultyOptionLabel } from '@/lib/languageTestClie
 import { alignTexts, FEMALE_VOICE, MALE_VOICE, speakText } from '@/lib/languageTestClient';
 import { reportRateLimit } from '@/lib/rateLimitClient';
 import ColoredTextArea from '@/components/ColoredTextArea';
+import SpeakPractice from '@/components/SpeakPractice';
 import type { AlignedSegment } from '@/lib/wordAlignment';
 
 const WORD_CATEGORIES: { value: WordCategory; label: string }[] = [
@@ -471,8 +472,8 @@ export default function LanguageForm({ wordLanguage, answerLanguage }: LanguageF
               type="button"
               onClick={() => handleSpeak(MALE_VOICE, setSpeakStatus)}
               disabled={!word.trim() || speakStatus === 'loading'}
-              aria-label="Speak"
-              title="Speak"
+              aria-label="Listen (male voice)"
+              title="Listen (male voice)"
               className="practice-btn"
             >
               {speakStatus === 'loading' ? (
@@ -485,8 +486,8 @@ export default function LanguageForm({ wordLanguage, answerLanguage }: LanguageF
               type="button"
               onClick={() => handleSpeak(FEMALE_VOICE, setSpeakFemaleStatus)}
               disabled={!word.trim() || speakFemaleStatus === 'loading'}
-              aria-label="Speak (female voice)"
-              title="Speak (female voice)"
+              aria-label="Listen (female voice)"
+              title="Listen (female voice)"
               className="practice-btn"
             >
               {speakFemaleStatus === 'loading' ? (
@@ -498,6 +499,9 @@ export default function LanguageForm({ wordLanguage, answerLanguage }: LanguageF
           </div>
         </div>
       </div>
+
+      {/* Speaking practice: say the word field's text and get a score */}
+      <SpeakPractice expected={word} language={wordLanguage} />
 
       {/* Answer Field */}
       <div>

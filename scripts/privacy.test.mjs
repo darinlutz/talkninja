@@ -30,6 +30,8 @@ import { MINIMUM_AGE, POLICY_VERSIONS, acceptsCurrentTerms } from '../src/lib/po
 import { RETENTION_KEYS, RETENTION_RULES, cutoff, retentionDays } from '../src/lib/retentionRules.ts';
 import { AI_MODELS, AI_MODEL_PROVIDERS } from '../src/lib/aiModelList.ts';
 import { EXPORTED_TABLES, NOT_EXPORTED } from '../src/lib/personalDataExport.ts';
+import { SPEAKING_PASS_SCORE, SPEECH_RECOGNITION_LOCALES, bestSpokenAttempt, scoreSpokenAttempt } from '../src/lib/speechPractice.ts';
+import { LANGUAGES } from '../src/lib/languages.ts';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DAY = 24 * 60 * 60 * 1000;
@@ -183,7 +185,7 @@ describe('legal documents', () => {
     assert.equal(MINIMUM_AGE, 18);
   });
 
-  test('ElevenLabs is disclosed because it is used; microphone recording and DeepSeek are not claimed or used', () => {
+  test('ElevenLabs is disclosed because it is used; the microphone is used only by Speak practice, as disclosed; DeepSeek is not used', () => {
     // src/lib/elevenLabs.ts sends text to speak to ElevenLabs, so the Privacy Policy must name it
     assert.ok(FILES.some(({ text }) => text.includes('api.elevenlabs.io')));
     assert.ok(SERVICE_PROVIDERS.some((p) => p.name === 'ElevenLabs'));
@@ -191,7 +193,17 @@ describe('legal documents', () => {
     assert.ok(docText(privacyPolicy).includes('do not record your voice'));
     assert.ok(!AI_MODELS.some((m) => m.startsWith('deepseek')));
     assert.ok(!AI_MODEL_PROVIDERS.includes('DeepSeek'));
+    // Speak practice (Reading & Speaking tab) uses the browser's own speech recognition; we never receive the audio
+    const MIC_FILES = ['src/components/SpeakPractice.tsx'];
+    assert.ok(docText(privacyPolicy).includes('Speaking practice'));
+    assert.ok(docText(privacyPolicy).includes('We do not receive or store your audio'));
+    assert.ok(fs.readFileSync(path.join(ROOT, 'next.config.js'), 'utf8').includes('microphone=(self)'));
     for (const { file, text } of FILES) {
+      if (MIC_FILES.includes(file)) {
+        // Recognition in the browser only: never recorded or uploaded
+        assert.ok(!/getUserMedia|MediaRecorder|fetch\(/.test(text), `${file} must not record or upload audio`);
+        continue;
+      }
       assert.ok(!/getUserMedia|MediaRecorder|SpeechRecognition/.test(text), `${file} uses the microphone; update the Privacy Policy first`);
       assert.ok(!text.includes('api.deepseek.com'), file);
     }
@@ -201,6 +213,24 @@ describe('legal documents', () => {
     assert.equal(acceptsCurrentTerms({ terms: POLICY_VERSIONS.terms }), true);
     assert.equal(acceptsCurrentTerms({ terms: '2000-01-01' }), false);
     assert.equal(acceptsCurrentTerms(null), false);
+  });
+});
+
+describe('speaking practice scores', () => {
+  test('an exact attempt scores 100, ignoring case, punctuation and spacing', () => {
+    assert.equal(scoreSpokenAttempt('Xin chào!', 'xin chào', 'vi-VN'), 100);
+    assert.equal(scoreSpokenAttempt('你好吗？', '你 好 吗', 'zh-CN'), 100);
+  });
+  test('a near miss scores partially, silence or a different phrase scores low', () => {
+    const near = scoreSpokenAttempt('Tôi muốn uống cà phê', 'tôi muốn uống cafe', 'vi-VN');
+    assert.ok(near >= 60 && near < 100, String(near));
+    assert.equal(scoreSpokenAttempt('Hello there', '', 'en-US'), 0);
+    assert.ok(scoreSpokenAttempt('Good morning', 'banana', 'en-US') < SPEAKING_PASS_SCORE);
+  });
+  test('the best alternative is used, and every language has a recognition locale', () => {
+    assert.deepEqual(bestSpokenAttempt('good night', ['good knight', 'good night']), { transcript: 'good night', score: 100 });
+    assert.equal(SPEAKING_PASS_SCORE, 80);
+    for (const language of LANGUAGES) assert.ok(SPEECH_RECOGNITION_LOCALES[language], language);
   });
 });
 

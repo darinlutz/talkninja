@@ -81,7 +81,7 @@ export const en = {
     notKept: [
       'What you type into practice, the Translator or the AI Friend (sent to our AI provider for a reply, not stored by us)',
       'Spoken audio (made for you on request, not stored)',
-      'Your voice (we never use your microphone)',
+      'Your voice (Speak practice uses your browser\'s own speech recognition; we never receive the audio, what you said or your score)',
       'Your card number (handled by Stripe)',
     ],
     sentTo: 'Service providers',

@@ -17,7 +17,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 The Language page (`src/app/language/page.tsx`) has these tabs:
 - **Training** – practice vocabulary from the learner's sheet, with text-to-speech and pictures
 - **Reading Test / Writing Test** – the scored belt tests
-- **Reading / Writing** – free practice
+- **Reading / Writing** – free practice. Reading & Speaking's **Speak** button (`src/components/SpeakPractice.tsx`) listens with the browser's own speech recognition (Web Speech API; the only microphone use, `Permissions-Policy: microphone=(self)`), shows the words live, and scores the attempt 0–100% against the top text box (`src/lib/speechPractice.ts`; 80%+ green with a chime, below red with "Try Again"). Audio, transcript and score never reach the server; keep it that way or update the Privacy Policy's "Speaking practice" first
 - **Translator** – translation with word-by-word alignment
 - **Friend** – conversation practice with an AI friend, with grammar checking
 

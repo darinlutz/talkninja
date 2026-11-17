@@ -1,0 +1,255 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+import { Mic, Square } from 'lucide-react';
+import {
+  bestSpokenAttempt,
+  SPEAKING_PASS_SCORE,
+  speechLocale,
+} from '@/lib/speechPractice';
+
+// The Reading & Speaking tab's Speak button: the learner says the sentence shown above, the browser's own speech
+// recognition (Web Speech API) turns it into text as they speak, and the attempt is scored 0-100% against the
+// sentence. TalkNinja never receives the audio; the transcript and score stay in this component (Privacy Policy,
+// "Speaking practice"). The microphone is allowed for this site only (Permissions-Policy in next.config.js).
+
+// The parts of the Web Speech API used here (not in every TypeScript DOM library)
+interface RecognitionAlternative {
+  transcript: string;
+}
+interface RecognitionResult {
+  readonly isFinal: boolean;
+  readonly length: number;
+  [index: number]: RecognitionAlternative;
+}
+interface RecognitionEvent {
+  readonly resultIndex: number;
+  readonly results: { readonly length: number; [index: number]: RecognitionResult };
+}
+interface RecognitionErrorEvent {
+  readonly error: string;
+}
+interface Recognition {
+  lang: string;
+  interimResults: boolean;
+  continuous: boolean;
+  maxAlternatives: number;
+  onresult: ((event: RecognitionEvent) => void) | null;
+  onerror: ((event: RecognitionErrorEvent) => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+  abort(): void;
+}
+type RecognitionConstructor = new () => Recognition;
+
+function recognitionConstructor(): RecognitionConstructor | null {
+  if (typeof window === 'undefined') return null;
+  const w = window as unknown as {
+    SpeechRecognition?: RecognitionConstructor;
+    webkitSpeechRecognition?: RecognitionConstructor;
+  };
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
+}
+
+const RECOGNITION_ERRORS: Record<string, string> = {
+  'not-allowed': 'Microphone access was blocked. Allow the microphone for this site in your browser, then press Speak again.',
+  'service-not-allowed': 'Speech recognition isn\'t allowed in this browser. Try Chrome, Edge or Safari.',
+  'audio-capture': 'No microphone was found. Connect one, then press Speak again.',
+  network: 'Speech recognition needs an internet connection. Check your connection and try again.',
+  'language-not-supported': 'Your browser can\'t recognize speech in this language yet.',
+};
+
+// A short synthesized chime (no audio files): rising notes for a pass, falling for a miss
+function playChime(passed: boolean) {
+  try {
+    const AudioContextClass =
+      window.AudioContext ??
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const context = new AudioContextClass();
+    const notes = passed ? [523.25, 659.25, 783.99] : [311.13, 233.08];
+    const step = passed ? 0.11 : 0.2;
+    notes.forEach((frequency, i) => {
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = passed ? 'sine' : 'triangle';
+      oscillator.frequency.value = frequency;
+      const start = context.currentTime + i * step;
+      const length = passed ? 0.35 : 0.3;
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.25, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + length);
+      oscillator.connect(gain).connect(context.destination);
+      oscillator.start(start);
+      oscillator.stop(start + length);
+    });
+    window.setTimeout(() => void context.close(), (notes.length * step + 0.5) * 1000);
+  } catch {
+    // Sound is a nicety; the score is still shown
+  }
+}
+
+interface SpeakPracticeProps {
+  // The sentence to say (the top text box) and its language
+  expected: string;
+  language: string;
+}
+
+export default function SpeakPractice({ expected, language }: SpeakPracticeProps) {
+  const [listening, setListening] = useState(false);
+  const [transcript, setTranscript] = useState('');
+  // The score of the last attempt, and the sentence it was for (a new sentence clears it)
+  const [result, setResult] = useState<{ for: string; score: number } | null>(null);
+  const [message, setMessage] = useState('');
+  const recognitionRef = useRef<Recognition | null>(null);
+
+  // A new sentence (or language) starts fresh
+  const [attemptKey, setAttemptKey] = useState(`${language}|${expected}`);
+  if (attemptKey !== `${language}|${expected}`) {
+    setAttemptKey(`${language}|${expected}`);
+    setListening(false);
+    setTranscript('');
+    setResult(null);
+    setMessage('');
+  }
+
+  // Stops listening if the sentence changes or the tab closes mid-attempt
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.abort();
+      recognitionRef.current = null;
+    };
+  }, [expected, language]);
+
+  const handleSpeak = () => {
+    if (listening) {
+      // Pressing again finishes the attempt early; onend scores it
+      recognitionRef.current?.stop();
+      return;
+    }
+    if (!expected.trim()) return;
+
+    const Constructor = recognitionConstructor();
+    if (!Constructor) {
+      setMessage('Your browser doesn\'t support speech recognition. Try Chrome, Edge or Safari.');
+      return;
+    }
+
+    const locale = speechLocale(language);
+    const target = expected;
+    const recognition = new Constructor();
+    recognition.lang = locale;
+    recognition.interimResults = true;
+    recognition.continuous = false;
+    recognition.maxAlternatives = 3;
+
+    let finalAlternatives: string[] = [];
+    let interim = '';
+    let failed = false;
+
+    recognition.onresult = (event) => {
+      let finalText = '';
+      let interimText = '';
+      const alternatives: string[][] = [];
+      for (let i = 0; i < event.results.length; i++) {
+        const res = event.results[i];
+        if (res.isFinal) {
+          finalText += res[0].transcript;
+          alternatives.push(Array.from({ length: res.length }, (_, k) => res[k].transcript));
+        } else {
+          interimText += res[0].transcript;
+        }
+      }
+      interim = interimText;
+      // One final result (the usual case): score each of its alternatives; several: their first choices joined
+      if (alternatives.length === 1) finalAlternatives = alternatives[0];
+      else if (alternatives.length > 1) finalAlternatives = [finalText];
+      setTranscript(`${finalText}${interimText}`.trim());
+    };
+
+    recognition.onerror = (event) => {
+      if (event.error === 'aborted') return;
+      if (event.error === 'no-speech') return; // onend reports it
+      failed = true;
+      setMessage(RECOGNITION_ERRORS[event.error] ?? 'Speech recognition stopped unexpectedly. Please try again.');
+    };
+
+    recognition.onend = () => {
+      if (recognitionRef.current !== recognition) return;
+      recognitionRef.current = null;
+      setListening(false);
+      if (failed) return;
+
+      const heard = finalAlternatives.length > 0 ? finalAlternatives : interim.trim() ? [interim] : [];
+      if (heard.length === 0) {
+        setMessage('We didn\'t hear anything. Press Speak and say the phrase.');
+        return;
+      }
+      const best = bestSpokenAttempt(target, heard, locale);
+      setTranscript(best.transcript.trim());
+      setResult({ for: target, score: best.score });
+      playChime(best.score >= SPEAKING_PASS_SCORE);
+    };
+
+    recognitionRef.current?.abort();
+    recognitionRef.current = recognition;
+    setTranscript('');
+    setResult(null);
+    setMessage('');
+    try {
+      recognition.start();
+      setListening(true);
+    } catch {
+      recognitionRef.current = null;
+      setMessage('The microphone couldn\'t be started. Please try again.');
+    }
+  };
+
+  const shownResult = result && result.for === expected ? result : null;
+  const passed = shownResult ? shownResult.score >= SPEAKING_PASS_SCORE : false;
+
+  return (
+    <div>
+      <div className="flex flex-col sm:flex-row gap-3">
+        <button
+          type="button"
+          onClick={handleSpeak}
+          disabled={!expected.trim()}
+          aria-pressed={listening}
+          title={listening ? 'Stop and score' : 'Say the phrase above'}
+          className="practice-btn flex-shrink-0 sm:self-start"
+        >
+          {listening ? (
+            <>
+              <Square className="w-4 h-4" aria-hidden="true" />
+              Listening…
+            </>
+          ) : (
+            <>
+              <Mic className="w-5 h-5" aria-hidden="true" />
+              Speak
+            </>
+          )}
+        </button>
+        <textarea
+          value={transcript}
+          readOnly
+          aria-label="What we heard"
+          placeholder={listening ? 'Listening… say the phrase' : 'Press Speak and say the phrase. Your words appear here.'}
+          className="practice-field"
+          rows={2}
+        />
+      </div>
+
+      {shownResult && (
+        <div className="mt-2 flex items-center gap-3 font-semibold" role="status">
+          <span className={`text-2xl ${passed ? 'text-green-400' : 'text-red-400'}`}>{shownResult.score}%</span>
+          {!passed && <span className="text-red-400">Try Again</span>}
+        </div>
+      )}
+
+      {message && <div className="practice-error mt-2">{message}</div>}
+    </div>
+  );
+}

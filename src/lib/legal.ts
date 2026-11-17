@@ -47,7 +47,7 @@ const EFFECTIVE = 'November 3, 2026';
 // The Terms were updated on their own (one plan, the Monthly Subscription)
 const TERMS_EFFECTIVE = 'November 16, 2026';
 // The Privacy Policy was updated on its own (ElevenLabs text to speech)
-const PRIVACY_EFFECTIVE = 'November 16, 2026';
+const PRIVACY_EFFECTIVE = 'November 17, 2026';
 
 const contactBlock: LegalBlock = {
   contact: [
@@ -321,6 +321,7 @@ const retentionRows: string[][] = [
   ['Cookie choice records', `${days(RETENTION_RULES.consentRecords.days)}`],
   ['Record that an account was deleted (account ID and dates only)', `${days(RETENTION_RULES.deletionLedger.days)}`],
   ['What you type into AI features (practice answers, Friend conversations, Translator text)', 'Not stored by us. Kept by our AI providers as described in Section 5'],
+  ['Speaking practice (your voice, the text of what you said, your score)', 'Not received or stored by us; handled in your browser and by its speech recognition service'],
   ['Spoken audio', 'Not saved by us; generated on request and sent to your browser. Recent audio is kept briefly in server memory to replay the same words, and is gone when the server restarts'],
   ['Payment and billing records', 'Kept by Stripe under its own legal obligations (for example, tax and accounting)'],
   ['Server logs', 'Kept by Render for its log retention period'],
@@ -366,10 +367,18 @@ export const privacyPolicy: LegalDocumentContent = {
             'Stripe tells us when a payment succeeds, a subscription renews or ends, and the Stripe customer and subscription IDs. We do not receive your card number.',
           ],
         },
+        { subheading: 'Speaking practice' },
+        {
+          list: [
+            'When you press Speak on the Reading & Speaking tab, your browser asks for permission to use your microphone and turns what you say into text with its own speech recognition service (for example, Google\'s in Chrome, Apple\'s in Safari or Microsoft\'s in Edge), under that company\'s terms. Your browser may send the audio to that company to do this; it is not sent to us.',
+            'The text it produces and your score are shown only in your browser. We do not receive or store your audio, the text of what you said, or your speaking scores.',
+            'You can refuse or withdraw microphone permission at any time in your browser\'s settings; the rest of the Services work without it.',
+          ],
+        },
         { subheading: 'What we do not collect' },
         {
           list: [
-            'We do not record your voice or use your microphone. Spoken audio is produced for you from text; we do not save it.',
+            'We do not record your voice. The microphone is used only when you press Speak on the Reading & Speaking tab (see "Speaking practice" above), and we never receive or save the audio. Spoken audio is produced for you from text; we do not save it.',
             'We do not use analytics, advertising or tracking cookies or third-party trackers, and we do not build advertising profiles.',
             'We do not ask for sensitive personal information (such as health, religion or political opinions).',
           ],

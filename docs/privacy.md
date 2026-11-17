@@ -20,7 +20,7 @@ emails keep going to the owner's Yahoo inbox.
 | Custom training instructions | `"CustomAgentInstructions"` | Instruction | Contract | AI provider (in prompts) | Account lifetime | Cascade |
 | Typed text: test answers, Friend chat, Translator input, words to speak | **Not stored** (browser memory; sent per request) | Instruction | Contract | OpenAI / Anthropic; LangSmith (tracing) | Providers' terms | n/a |
 | Spoken audio | **Not stored** (generated, streamed to browser) | Text-to-speech | Contract | OpenAI | Providers' terms | n/a |
-| Microphone audio, transcripts, pronunciation scores | **Do not exist** (no mic access; `Permissions-Policy: microphone=()`) | — | — | — | — | — |
+| Microphone audio, transcripts, speaking scores (Reading & Speaking tab, Speak button) | **Not received or stored** (the browser's Web Speech API does the recognition; transcript and score stay in browser memory; `Permissions-Policy: microphone=(self)`; only `src/components/SpeakPractice.tsx` uses it) | Speaking practice | Consent (the browser's microphone prompt) | The browser's own speech service (e.g. Google in Chrome, Apple in Safari, Microsoft in Edge), not ours | Browser vendor's terms | n/a |
 | UI translation cache | Browser localStorage | Show site in user's language | Contract | OpenAI (UI strings only) | Until cleared | User's browser |
 | Vocabulary sheet ID | `vocab_sheet` cookie | Training from user's sheet | Contract | Google (Sheets API) | 1 year | Disconnect / cookie expiry |
 | Sessions (hashed token, expiry) | `"Sessions"` | Security | Contract | — | 7 days after expiry | Retention job; cascade |
