@@ -30,7 +30,7 @@ import { MINIMUM_AGE, POLICY_VERSIONS, acceptsCurrentTerms } from '../src/lib/po
 import { RETENTION_KEYS, RETENTION_RULES, cutoff, retentionDays } from '../src/lib/retentionRules.ts';
 import { AI_MODELS, AI_MODEL_PROVIDERS } from '../src/lib/aiModelList.ts';
 import { EXPORTED_TABLES, NOT_EXPORTED } from '../src/lib/personalDataExport.ts';
-import { SCRIBE_LANGUAGE_CODES, SPEAKING_PASS_SCORE, SPEECH_RECOGNITION_LOCALES, gradeSpokenAttempt, gradeSpokenWords, scoreSpokenAttempt } from '../src/lib/speechPractice.ts';
+import { SCRIBE_LANGUAGE_CODES, SPEAKING_PASS_SCORE, SPEECH_RECOGNITION_LOCALES, gradeSpokenAttempt, gradeSpokenWords, saidWholeSentence, scoreSpokenAttempt } from '../src/lib/speechPractice.ts';
 import { LANGUAGES } from '../src/lib/languages.ts';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -269,6 +269,14 @@ describe('speaking practice scores', () => {
     assert.equal(finished.map((p) => p.text).join(''), 'Hello there!');
     // Languages written without spaces still grade word by word
     assert.ok(graded(gradeSpokenWords('你好吗', '你好吗', 'zh-CN', true)).every((w) => w.endsWith(':correct')));
+  });
+  test('Speak stops as soon as the last word of the sentence is heard', () => {
+    assert.equal(saidWholeSentence('Tôi muốn uống cà phê.', 'tôi muốn', 'vi-VN'), false);
+    assert.equal(saidWholeSentence('Tôi muốn uống cà phê.', 'tôi muốn uống cà phê', 'vi-VN'), true);
+    assert.equal(saidWholeSentence('Tôi muốn uống cà phê.', 'toi muon uong ca phe', 'vi-VN'), true);
+    assert.equal(saidWholeSentence('good morning friend', 'good banana friend', 'en-US'), true);
+    assert.equal(saidWholeSentence('good morning friend', 'good morning', 'en-US'), false);
+    assert.equal(saidWholeSentence('cat', 'car', 'en-US'), true);
   });
 });
 

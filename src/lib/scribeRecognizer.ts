@@ -108,9 +108,9 @@ export interface ScribeHandlers {
 export interface ScribeRecognizer {
   // Opens the session at `url` (from /api/speech-recognition) and sends what's been captured so far
   connect: (url: string) => void;
-  // Sends what's left, commits, and resolves once the final transcript arrives (or after a short wait). Called before
-  // the session has started, it waits for it first, so a quick attempt still gets transcribed.
-  finish: () => Promise<void>;
+  // Sends what's left, commits, and resolves once the final transcript arrives (or after `finalWaitMs`, default 3 s).
+  // Called before the session has started, it waits for it first, so a quick attempt still gets transcribed.
+  finish: (finalWaitMs?: number) => Promise<void>;
   // Stops at once, without waiting for a transcript
   abort: () => void;
 }
@@ -182,6 +182,7 @@ export async function startScribe(input: {
   let finishing: Promise<void> | null = null;
   let resolveFinal: (() => void) | null = null;
   let connectTimer: number | undefined;
+  let finalWait = FINAL_TRANSCRIPT_TIMEOUT_MS;
 
   const transmit = (audio: string, samples: number, last: boolean) => {
     uncommitted += samples;
@@ -193,7 +194,7 @@ export async function startScribe(input: {
     if (last) {
       // Nothing (or almost nothing) uncommitted means no transcript is coming
       const waiting = partial || pendingSamples >= MIN_TRANSCRIBED_SAMPLES;
-      window.setTimeout(() => resolveFinal?.(), waiting ? FINAL_TRANSCRIPT_TIMEOUT_MS : 600);
+      window.setTimeout(() => resolveFinal?.(), waiting ? finalWait : Math.min(600, finalWait));
     }
   };
 
@@ -286,8 +287,9 @@ export async function startScribe(input: {
         if (!started) fail('Speech recognition took too long to connect. Check your connection and try again.', true);
       }, CONNECT_TIMEOUT_MS);
     },
-    finish() {
+    finish(finalWaitMs?: number) {
       if (finishing) return finishing;
+      if (finalWaitMs !== undefined) finalWait = finalWaitMs;
       finishing = new Promise<void>((resolve) => {
         if (closed || !socket) {
           resolve();
@@ -297,7 +299,7 @@ export async function startScribe(input: {
         // The last chunk commits (kept until the session starts, if it hasn't yet)
         node.port.postMessage('flush');
         // Never wait forever
-        window.setTimeout(resolve, (started ? 0 : CONNECT_TIMEOUT_MS) + FINAL_TRANSCRIPT_TIMEOUT_MS + 1000);
+        window.setTimeout(resolve, (started ? 0 : CONNECT_TIMEOUT_MS) + finalWait + 1000);
       }).then(cleanUp);
       return finishing;
     },

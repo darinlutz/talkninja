@@ -6,6 +6,7 @@ import {
   gradeSpokenAttempt,
   gradeSpokenWords,
   MAX_SPEAK_ATTEMPT_MS,
+  saidWholeSentence,
   recognizerLabel,
   SCRIBE_SAMPLE_RATE,
   scribeLanguageCode,
@@ -91,13 +92,14 @@ const RECOGNITION_ERRORS: Record<string, string> = {
   'language-not-supported': 'Your browser can\'t recognize speech in this language yet.',
 };
 
-// How long to wait: for the learner to start speaking, after they pause (long enough for a learner to think of the
-// next word), and for the whole attempt. Scribe's live text lags the voice a little, so once it has reached the end
-// of the sentence it gets a moment longer than the browser's settled results.
+// How long to wait: for the learner to start speaking, after they pause without finishing the sentence (long enough
+// for a learner to think of the next word), and for the whole attempt. Once the last word of the sentence appears,
+// listening stops straight away (Scribe's text lags the voice, so the learner has already said it), and Scribe's
+// final transcript is waited for only briefly before scoring.
 const START_TIMEOUT_MS = 10_000;
 const PAUSE_MS = 2_500;
-const PAUSE_AFTER_WHOLE_SENTENCE_MS = 700;
-const SCRIBE_PAUSE_AFTER_WHOLE_SENTENCE_MS = 900;
+const WHOLE_SENTENCE_STOP_MS = 100;
+const SCRIBE_QUICK_FINAL_MS = 800;
 const MAX_ATTEMPT_MS = MAX_SPEAK_ATTEMPT_MS;
 // A session requested ahead of time is used if the learner presses Speak within this long
 const SESSION_REUSE_MS = 10 * 60_000;
@@ -168,6 +170,10 @@ interface Attempt {
   interim: string;
   // Every distinct full transcript seen along the way (interim ones too), so a word heard right once counts
   snapshots: string[];
+  // The last text shown: the pause timer restarts only when it changes (Scribe repeats unchanged partials)
+  lastText: string;
+  // Stopped because the whole sentence was heard: Scribe's final transcript is waited for only briefly
+  quickFinish: boolean;
   heardSpeech: boolean;
   stopping: boolean;
   failed: boolean;
@@ -360,26 +366,28 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
     attempt.maxTimer = window.setTimeout(() => stopAttempt(attempt), MAX_ATTEMPT_MS);
   }
 
-  // Something new was heard: show it, remember it, and end the attempt after a pause (a short one once the whole
-  // sentence has been said and nothing is still being worked out, a longer one otherwise)
-  function heard(attempt: Attempt, text: string, settled: boolean) {
-    if (!text) return;
+  // Something new was heard: show it and remember it. As soon as the last word of the sentence appears, stop listening
+  // and score; otherwise end the attempt after a pause in which nothing new is heard.
+  function heard(attempt: Attempt, text: string) {
+    if (!text || attempt.stopping) return;
     attempt.heardSpeech = true;
+    window.clearTimeout(attempt.startTimer);
+    // An unchanged repeat (Scribe resends its partial text) isn't new speech, so it doesn't hold the attempt open
+    if (text === attempt.lastText) return;
+    attempt.lastText = text;
     if (!attempt.snapshots.includes(text)) attempt.snapshots = [...attempt.snapshots.slice(-19), text];
     setLiveText(text);
-    window.clearTimeout(attempt.startTimer);
     window.clearTimeout(attempt.pauseTimer);
-    // Scribe only commits at the end, so its live text is what there is to go on
-    const scribe = attempt.engine === 'scribe';
-    const done = (settled || scribe) && reachedWholeSentence(attempt, text);
-    attempt.pauseTimer = window.setTimeout(
-      () => stopAttempt(attempt),
-      done ? (scribe ? SCRIBE_PAUSE_AFTER_WHOLE_SENTENCE_MS : PAUSE_AFTER_WHOLE_SENTENCE_MS) : PAUSE_MS
-    );
+    if (saidWholeSentence(attempt.target, text, attempt.locale)) {
+      attempt.pauseTimer = window.setTimeout(() => stopAttempt(attempt, true), WHOLE_SENTENCE_STOP_MS);
+      return;
+    }
+    attempt.pauseTimer = window.setTimeout(() => stopAttempt(attempt), PAUSE_MS);
   }
 
-  function stopAttempt(attempt: Attempt) {
+  function stopAttempt(attempt: Attempt, quick = false) {
     if (attempt.stopping) return;
+    attempt.quickFinish = quick;
     attempt.stopping = true;
     clearTimers(attempt);
     if (attempt.engine === 'scribe') {
@@ -395,7 +403,7 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
         attempt.finishWhenConnected = true;
         return;
       }
-      void attempt.scribe.finish().then(() => finishAttempt(attempt));
+      void attempt.scribe.finish(quick ? SCRIBE_QUICK_FINAL_MS : undefined).then(() => finishAttempt(attempt));
       return;
     }
     if (attempt.recognition) {
@@ -433,13 +441,6 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
     setLiveText('');
     setResult({ for: attempt.target, parts: graded.parts, score: graded.score, heard: heard[0] });
     playChime(graded.score >= SPEAKING_PASS_SCORE);
-  }
-
-  // Whether every word of the sentence has been reached in what's been heard
-  function reachedWholeSentence(attempt: Attempt, text: string): boolean {
-    const parts = gradeSpokenWords(attempt.target, text, attempt.locale, false);
-    const all = gradeSpokenWords(attempt.target, text, attempt.locale, true);
-    return parts.filter((p) => p.grade).length === all.filter((p) => p.grade).length;
   }
 
   function startRecognizer(attempt: Attempt, Constructor: RecognitionConstructor) {
@@ -480,7 +481,7 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
       const text = joined([...attempt.committed, ...finals], attempt.interim);
       if (!text) return;
       heardHere = true;
-      heard(attempt, text, !attempt.interim);
+      heard(attempt, text);
     };
 
     recognition.onerror = (event) => {
@@ -506,7 +507,7 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
         !attempt.stopping &&
         !attempt.failed &&
         elapsed < MAX_ATTEMPT_MS &&
-        (attempt.heardSpeech ? !reachedWholeSentence(attempt, text) : elapsed < START_TIMEOUT_MS) &&
+        (attempt.heardSpeech ? !saidWholeSentence(attempt.target, text, attempt.locale) : elapsed < START_TIMEOUT_MS) &&
         (heardHere || attempt.quickRestarts++ < MAX_QUICK_RESTARTS);
       if (keepListening) {
         try {
@@ -599,13 +600,13 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
           onPartial: (text) => {
             if (attemptRef.current !== attempt) return;
             attempt.interim = text;
-            heard(attempt, joined(attempt.committed, text), false);
+            heard(attempt, joined(attempt.committed, text));
           },
           onCommitted: (text) => {
             if (attemptRef.current !== attempt) return;
             attempt.committed = [...attempt.committed, [text]];
             attempt.interim = '';
-            if (!attempt.stopping) heard(attempt, joined(attempt.committed), true);
+            heard(attempt, joined(attempt.committed));
           },
           onLevel: (value) => {
             if (attemptRef.current === attempt && !attempt.stopping) setLevel(value);
@@ -643,7 +644,9 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
     if (usableSession(answer)) {
       attempt.connected = true;
       attempt.scribe.connect(answer.url!);
-      if (attempt.finishWhenConnected) void attempt.scribe.finish().then(() => finishAttempt(attempt));
+      if (attempt.finishWhenConnected) {
+        void attempt.scribe.finish(attempt.quickFinish ? SCRIBE_QUICK_FINAL_MS : undefined).then(() => finishAttempt(attempt));
+      }
       return;
     }
     attempt.scribe.abort();
@@ -692,6 +695,8 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
       current: [],
       interim: '',
       snapshots: [],
+      lastText: '',
+      quickFinish: false,
       heardSpeech: false,
       stopping: false,
       failed: false,

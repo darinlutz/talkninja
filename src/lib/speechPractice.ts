@@ -349,6 +349,17 @@ export function gradeSpokenWords(
   return shownParts(pieces, grades, words[reachedWords - 1].index, finished);
 }
 
+// Whether the learner has got to the end of the sentence: the last word has been reached and something like it was
+// said (close or correct). Speak stops listening as soon as this is true.
+export function saidWholeSentence(expected: string, spoken: string, locale?: string): boolean {
+  const progress = alignWords(expected, spoken, locale, false);
+  if (!progress || progress.reachedWords < progress.words.length) return false;
+  const whole = alignWords(expected, spoken, locale, true);
+  if (!whole || whole.words.length === 0) return false;
+  const k = whole.words.length - 1;
+  return gradeOf(whole.errors[k], whole.words[k].chars.length) !== 'wrong';
+}
+
 // A finished attempt, graded against everything the recognizer offered (its alternatives, and what it heard along the
 // way): each word keeps its best result, and the score (0-100) is the share of the sentence's letters said right,
 // with every correct word counting in full
