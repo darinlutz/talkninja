@@ -21,7 +21,8 @@
       "Bash(ls -d /Users/darinlutz/Desktop/*/ /Users/darinlutz/Desktop/Clarivex/*/ /Users/darinlutz/*/ 2>/dev/null | grep -i -E \"rac|coach\"; find /Users/darinlutz -maxdepth 4 -iname \"*racingcoach*\" -not -path \"*/Library/*\" -not -path \"*/node_modules/*\" 2>/dev/null | head)",
       "Read(//Users/darinlutz/Desktop/**)",
       "Read(//Users/darinlutz/**)",
-      "WebFetch(domain:elevenlabs.io)"
+      "WebFetch(domain:elevenlabs.io)",
+      "mcp__plugin_render_render__list_services"
     ]
   }
 }

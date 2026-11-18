@@ -12,10 +12,19 @@ import type { Language } from './languages';
 import { OPENAI_DEFAULT_VOICES, type ResolvedVoice, type VoiceGender } from './voiceConfig';
 
 const OPENAI_TTS_MODEL = 'gpt-4o-mini-tts';
+const OPENAI_TIMEOUT_MS = 20_000;
 const CACHE_ENTRIES = 200;
 const CACHE_BYTES = 40 * 1024 * 1024;
 const cache = new Map<string, Buffer>();
 let cacheBytes = 0;
+// Audio being made right now, so the same words asked for twice at once are made once
+const inFlight = new Map<string, Promise<Buffer>>();
+// ElevenLabs voices that just failed, and until when the OpenAI voice is used without trying them again, so a voice
+// that's down or misconfigured doesn't make every click wait for it to fail first (a minute for an outage, five for
+// a setup problem; a voice changed on the Admin page has a new ID and is tried at once)
+const OUTAGE_REST_MS = 60_000;
+const CONFIG_PROBLEM_REST_MS = 5 * 60_000;
+const restingVoices = new Map<string, number>();
 
 export function speechCacheKey(voice: ResolvedVoice, language: Language, text: string): string {
   return voice.provider === 'elevenlabs'
@@ -57,6 +66,13 @@ async function openAiSpeech(text: string, voice: string): Promise<Buffer> {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({ model: OPENAI_TTS_MODEL, voice, input: text, response_format: 'mp3' }),
+    signal: AbortSignal.timeout(OPENAI_TIMEOUT_MS),
+  }).catch((error: unknown) => {
+    const timedOut = error instanceof Error && error.name === 'TimeoutError';
+    throw new SpeechError(
+      timedOut ? 'The voice took too long to respond. Please try again.' : 'Failed to generate speech',
+      `OpenAI TTS request failed: ${error instanceof Error ? error.message : String(error)}`
+    );
   });
   if (!res.ok) {
     const errorText = await res.text();
@@ -70,12 +86,22 @@ async function speak(voice: ResolvedVoice, language: Language, text: string): Pr
   const key = speechCacheKey(voice, language, text);
   const hit = fromCache(key);
   if (hit) return hit;
-  const audio =
-    voice.provider === 'elevenlabs'
-      ? await elevenLabsSpeech({ text, voiceId: voice.voiceId, model: voice.model, languageCode: voice.languageCode })
-      : await openAiSpeech(text, voice.voice);
-  remember(key, audio);
-  return audio;
+  const running = inFlight.get(key);
+  if (running) return running;
+  const making = (async () => {
+    const audio =
+      voice.provider === 'elevenlabs'
+        ? await elevenLabsSpeech({ text, voiceId: voice.voiceId, model: voice.model, languageCode: voice.languageCode })
+        : await openAiSpeech(text, voice.voice);
+    remember(key, audio);
+    return audio;
+  })();
+  inFlight.set(key, making);
+  try {
+    return await making;
+  } finally {
+    inFlight.delete(key);
+  }
 }
 
 export type SpeechResult = { audio: Buffer; provider: 'elevenlabs' | 'openai'; fellBack: boolean };
@@ -88,16 +114,31 @@ export async function synthesizeSpeech(input: { text: string; language: Language
   if (voice.provider === 'openai') {
     return { audio: await speak(voice, input.language, input.text), provider: 'openai', fellBack: false };
   }
+  const fallback = (problem: string): ResolvedVoice => ({
+    provider: 'openai',
+    voice: OPENAI_DEFAULT_VOICES[voice.gender],
+    gender: voice.gender,
+    problem,
+  });
+  // Already made by this voice: no need to try it
+  const cached = fromCache(speechCacheKey(voice, input.language, input.text));
+  if (cached) return { audio: cached, provider: 'elevenlabs', fellBack: false };
+  if ((restingVoices.get(voice.voiceId) ?? 0) > Date.now()) {
+    const problem = `${input.language}: ElevenLabs ${voice.gender} voice ${voice.voiceId} failed recently`;
+    return { audio: await speak(fallback(problem), input.language, input.text), provider: 'openai', fellBack: true };
+  }
   try {
-    return { audio: await speak(voice, input.language, input.text), provider: 'elevenlabs', fellBack: false };
+    const audio = await speak(voice, input.language, input.text);
+    restingVoices.delete(voice.voiceId);
+    return { audio, provider: 'elevenlabs', fellBack: false };
   } catch (error) {
     // The emergency stop is not a voice problem: nothing else may run either
     if (!(error instanceof ElevenLabsError)) throw error;
+    restingVoices.set(voice.voiceId, Date.now() + (error.configProblem ? CONFIG_PROBLEM_REST_MS : OUTAGE_REST_MS));
     const problem = `${input.language}: ElevenLabs ${voice.gender} voice ${voice.voiceId} failed (${error.message})`;
     console.error(`Voice ${error.configProblem ? 'configuration problem' : 'outage'}: ${problem}. Using OpenAI instead.`);
     reportVoiceProblem(input.language, problem);
-    const fallback: ResolvedVoice = { provider: 'openai', voice: OPENAI_DEFAULT_VOICES[voice.gender], gender: voice.gender, problem };
-    return { audio: await speak(fallback, input.language, input.text), provider: 'openai', fellBack: true };
+    return { audio: await speak(fallback(problem), input.language, input.text), provider: 'openai', fellBack: true };
   }
 }
 

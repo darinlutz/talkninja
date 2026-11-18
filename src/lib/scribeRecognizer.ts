@@ -6,9 +6,11 @@
 // Nothing is recorded or kept: the audio exists only in these chunks on their way to ElevenLabs, and the transcript
 // only in the page. TalkNinja's server never receives either (Privacy Policy, "Speaking practice").
 
-// Mono, with the browser's own cleanup, which helps recognition in a noisy room
+// Mono. Echo cancellation keeps the page's own voices (the speaker buttons) out, and gain control evens out quiet
+// microphones. The browser's noise suppression is off: it clips the soft consonants (s, f, h, t) and tone contours
+// that speech recognition needs, and Scribe handles background noise better on its own.
 const MIC_CONSTRAINTS: MediaStreamConstraints = {
-  audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+  audio: { channelCount: 1, echoCancellation: true, noiseSuppression: false, autoGainControl: true },
 };
 
 // Opens the microphone (the browser asks for permission the first time). Errors are mapped by microphoneError.
@@ -91,7 +93,7 @@ const SCRIBE_ERRORS = new Set([
 ]);
 
 export interface ScribeHandlers {
-  // The session has started and audio is flowing: the learner can speak
+  // The session has started (audio captured before it is sent now, so nothing said early is lost)
   onReady: () => void;
   // The text of the part not yet committed (changes as more is heard); '' when there is none
   onPartial: (text: string) => void;
@@ -104,7 +106,10 @@ export interface ScribeHandlers {
 }
 
 export interface ScribeRecognizer {
-  // Sends what's left, commits, and resolves once the final transcript arrives (or after a short wait)
+  // Opens the session at `url` (from /api/speech-recognition) and sends what's been captured so far
+  connect: (url: string) => void;
+  // Sends what's left, commits, and resolves once the final transcript arrives (or after a short wait). Called before
+  // the session has started, it waits for it first, so a quick attempt still gets transcribed.
   finish: () => Promise<void>;
   // Stops at once, without waiting for a transcript
   abort: () => void;
@@ -113,19 +118,23 @@ export interface ScribeRecognizer {
 const CHUNK_SAMPLES = 1600; // 100 ms at 16 kHz
 // Scribe is asked to commit at least this often, so a long attempt never holds too much uncommitted audio
 const MAX_UNCOMMITTED_SAMPLES = 16_000 * 20;
+// Less than this much uncommitted audio at the end (0.3 s) means no transcript is coming
+const MIN_TRANSCRIBED_SAMPLES = 4_800;
 const CONNECT_TIMEOUT_MS = 8_000;
 const FINAL_TRANSCRIPT_TIMEOUT_MS = 3_000;
+// Audio kept while the session opens (12 s); anything older is dropped
+const MAX_PENDING_CHUNKS = 120;
 
-// Streams `stream` (from openMicrophone) to the Scribe session at `url`. `context` is an AudioContext created during
-// the click on Speak, so the browser lets it run.
+// Starts capturing `stream` (from openMicrophone) straight away, resampled to `sampleRate`, and keeps it until
+// connect() opens the Scribe session, so the learner can start speaking while the session is still being set up.
+// `context` is an AudioContext created during the click on Speak, so the browser lets it run.
 export async function startScribe(input: {
-  url: string;
   sampleRate: number;
   context: AudioContext;
   stream: MediaStream;
   handlers: ScribeHandlers;
 }): Promise<ScribeRecognizer> {
-  const { url, sampleRate, context, stream, handlers } = input;
+  const { sampleRate, context, stream, handlers } = input;
   if (context.sampleRate < sampleRate || !context.audioWorklet) throw new Error('unsupported');
 
   const moduleUrl = URL.createObjectURL(new Blob([WORKLET], { type: 'application/javascript' }));
@@ -143,14 +152,28 @@ export async function startScribe(input: {
     outputChannelCount: [1],
     processorOptions: { targetRate: sampleRate, chunk: CHUNK_SAMPLES },
   });
+  // Before going down to 16 kHz, everything above ~7 kHz is filtered out (a 4th-order Butterworth low-pass: two
+  // biquads, whose Q is in dB). Without it, the hiss of "s", "sh" and "ch" folds back into the speech band as noise.
+  const filters: BiquadFilterNode[] = [];
+  if (context.sampleRate > sampleRate * 1.01) {
+    for (const qDb of [-5.33, 2.32]) {
+      const filter = context.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = sampleRate * 0.45;
+      filter.Q.value = qDb;
+      filters.push(filter);
+    }
+  }
   // A silent output keeps the worklet running in every browser; nothing is played
   const mute = context.createGain();
   mute.gain.value = 0;
-  source.connect(node).connect(mute).connect(context.destination);
+  let chain: AudioNode = source;
+  for (const filter of filters) chain = chain.connect(filter);
+  chain.connect(node).connect(mute).connect(context.destination);
 
-  const socket = new WebSocket(url);
+  let socket: WebSocket | null = null;
   // Audio from before the session started is kept and sent once it has, so the first word isn't lost
-  const pending: string[] = [];
+  const pending: { audio: string; samples: number; last: boolean }[] = [];
   let started = false;
   let closed = false;
   let failed = false;
@@ -158,9 +181,20 @@ export async function startScribe(input: {
   let partial = '';
   let finishing: Promise<void> | null = null;
   let resolveFinal: (() => void) | null = null;
+  let connectTimer: number | undefined;
 
-  const send = (audio: string, commit: boolean) => {
-    socket.send(JSON.stringify({ message_type: 'input_audio_chunk', audio_base_64: audio, commit, sample_rate: sampleRate }));
+  const transmit = (audio: string, samples: number, last: boolean) => {
+    uncommitted += samples;
+    const pendingSamples = uncommitted;
+    // The final chunk commits; so does a long stretch without one
+    const commit = last || uncommitted >= MAX_UNCOMMITTED_SAMPLES;
+    if (commit) uncommitted = 0;
+    socket?.send(JSON.stringify({ message_type: 'input_audio_chunk', audio_base_64: audio, commit, sample_rate: sampleRate }));
+    if (last) {
+      // Nothing (or almost nothing) uncommitted means no transcript is coming
+      const waiting = partial || pendingSamples >= MIN_TRANSCRIBED_SAMPLES;
+      window.setTimeout(() => resolveFinal?.(), waiting ? FINAL_TRANSCRIPT_TIMEOUT_MS : 600);
+    }
   };
 
   const cleanUp = () => {
@@ -170,12 +204,13 @@ export async function startScribe(input: {
     node.port.onmessage = null;
     try {
       source.disconnect();
+      for (const filter of filters) filter.disconnect();
       node.disconnect();
       mute.disconnect();
     } catch {
       // Already disconnected
     }
-    if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) socket.close();
+    if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) socket.close();
     resolveFinal?.();
   };
 
@@ -186,10 +221,6 @@ export async function startScribe(input: {
     cleanUp();
   };
 
-  const connectTimer = window.setTimeout(() => {
-    if (!started) fail('Speech recognition took too long to connect. Check your connection and try again.', true);
-  }, CONNECT_TIMEOUT_MS);
-
   node.port.onmessage = (event: MessageEvent<{ pcm: ArrayBuffer; level: number; last: boolean }>) => {
     const { pcm, level, last } = event.data;
     handlers.onLevel(Math.min(1, level * 4));
@@ -197,21 +228,14 @@ export async function startScribe(input: {
     if (closed || (samples === 0 && !last)) return;
     const audio = toBase64(pcm);
     if (!started) {
-      pending.push(audio);
+      pending.push({ audio, samples, last });
+      if (pending.length > MAX_PENDING_CHUNKS) pending.shift();
       return;
     }
-    uncommitted += samples;
-    // The final chunk commits; so does a long stretch without one
-    const commit = last || uncommitted >= MAX_UNCOMMITTED_SAMPLES;
-    if (commit) uncommitted = 0;
-    send(audio, commit);
-    if (last) {
-      // Nothing uncommitted means no transcript is coming
-      window.setTimeout(() => resolveFinal?.(), partial ? FINAL_TRANSCRIPT_TIMEOUT_MS : 600);
-    }
+    transmit(audio, samples, last);
   };
 
-  socket.onmessage = (event) => {
+  const onMessage = (event: MessageEvent) => {
     let message: { message_type?: string; text?: string; error?: string };
     try {
       message = JSON.parse(String(event.data));
@@ -222,10 +246,7 @@ export async function startScribe(input: {
     if (type === 'session_started') {
       started = true;
       window.clearTimeout(connectTimer);
-      for (const audio of pending.splice(0)) {
-        uncommitted += (audio.length * 3) / 8;
-        send(audio, false);
-      }
+      for (const chunk of pending.splice(0)) transmit(chunk.audio, chunk.samples, chunk.last);
       handlers.onReady();
     } else if (type === 'partial_transcript') {
       partial = (message.text ?? '').trim();
@@ -251,24 +272,32 @@ export async function startScribe(input: {
     }
   };
 
-  socket.onerror = () => fail('Speech recognition couldn\'t connect. Check your connection and try again.', true);
-  socket.onclose = () => {
-    if (!closed && !finishing) fail('Speech recognition stopped unexpectedly. Please try again.', false);
-    else resolveFinal?.();
-  };
-
   return {
+    connect(url: string) {
+      if (closed || socket) return;
+      socket = new WebSocket(url);
+      socket.onmessage = onMessage;
+      socket.onerror = () => fail('Speech recognition couldn\'t connect. Check your connection and try again.', true);
+      socket.onclose = () => {
+        if (!closed && !finishing) fail('Speech recognition stopped unexpectedly. Please try again.', false);
+        else resolveFinal?.();
+      };
+      connectTimer = window.setTimeout(() => {
+        if (!started) fail('Speech recognition took too long to connect. Check your connection and try again.', true);
+      }, CONNECT_TIMEOUT_MS);
+    },
     finish() {
       if (finishing) return finishing;
       finishing = new Promise<void>((resolve) => {
-        if (closed || !started) {
+        if (closed || !socket) {
           resolve();
           return;
         }
         resolveFinal = resolve;
+        // The last chunk commits (kept until the session starts, if it hasn't yet)
         node.port.postMessage('flush');
         // Never wait forever
-        window.setTimeout(resolve, FINAL_TRANSCRIPT_TIMEOUT_MS + 1000);
+        window.setTimeout(resolve, (started ? 0 : CONNECT_TIMEOUT_MS) + FINAL_TRANSCRIPT_TIMEOUT_MS + 1000);
       }).then(cleanUp);
       return finishing;
     },

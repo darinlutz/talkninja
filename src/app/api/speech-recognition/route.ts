@@ -4,16 +4,27 @@ import { aiRateLimit, type AiRateLimit } from '@/lib/rateLimits';
 import { checkPracticeAccess } from '@/lib/practiceAccess';
 import { aiServicesOn } from '@/lib/aiKillSwitch';
 import { isLanguage } from '@/lib/languages';
-import { scribeLanguageCode } from '@/lib/speechPractice';
+import { scribeLanguageCode, type BrowserRecognitionReason } from '@/lib/speechPractice';
 import { createScribeSession, scribeConfigured } from '@/lib/scribe';
 
 // Speaking practice (src/components/SpeakPractice.tsx): one ElevenLabs Scribe session for one Speak attempt.
 // Body: { language } (the language being learned, the only input, so nothing else needs a size cap). Answers
 // { provider: 'elevenlabs', url } with a WebSocket URL holding a single-use token (src/lib/scribe.ts) that the browser
-// streams the microphone to, or { provider: 'browser' } when Scribe can't be used (no ElevenLabs key, a language
-// Scribe doesn't know, the Emergency AI Stop on), and the page uses the browser's own recognition instead. The audio
-// and transcript never come here.
-const browserRecognition = () => NextResponse.json({ provider: 'browser' }, { headers: { 'Cache-Control': 'private, no-store' } });
+// streams the microphone to, or { provider: 'browser', reason } when Scribe can't be used (a language Scribe doesn't
+// know, no ElevenLabs key, the Emergency AI Stop on), and the page uses the browser's own recognition instead. The
+// audio and transcript never come here.
+//
+// GET answers only which of the two Speak would use (no session, nothing paid, not counted), so the page can say so
+// under the Speak button before the first attempt.
+const NO_STORE = { 'Cache-Control': 'private, no-store' };
+const browserRecognition = (reason: BrowserRecognitionReason) =>
+  NextResponse.json({ provider: 'browser', reason }, { headers: NO_STORE });
+
+async function unavailableReason(): Promise<BrowserRecognitionReason | null> {
+  if (!scribeConfigured()) return 'not-configured';
+  if (!(await aiServicesOn())) return 'stopped';
+  return null;
+}
 
 export async function POST(request: Request) {
   // Paid subscribers and Admins only (see practiceAccess.ts)
@@ -29,19 +40,25 @@ export async function POST(request: Request) {
     }
     const languageCode = scribeLanguageCode(body.language);
     // Nothing paid happens in these cases, so they aren't counted
-    if (!languageCode || !scribeConfigured() || !(await aiServicesOn())) return browserRecognition();
+    if (!languageCode) return browserRecognition('language');
+    const reason = await unavailableReason();
+    if (reason) return browserRecognition(reason);
 
     limit = await aiRateLimit(request, 'speechRecognition', access.user);
     if (limit.response) return limit.response;
 
     const session = await limit.track(() => createScribeSession(languageCode));
-    return NextResponse.json(
-      { provider: 'elevenlabs', url: session.url },
-      { headers: { 'Cache-Control': 'private, no-store' } }
-    );
+    return NextResponse.json({ provider: 'elevenlabs', url: session.url }, { headers: NO_STORE });
   } catch (error) {
     await limit?.refund();
     console.error('Speech recognition session error:', error instanceof Error ? error.message : error);
     return aiErrorResponse(error, 'Speech recognition is unavailable right now');
   }
+}
+
+export async function GET() {
+  const access = await checkPracticeAccess();
+  if (access.denied) return access.denied;
+  const reason = await unavailableReason();
+  return reason ? browserRecognition(reason) : NextResponse.json({ provider: 'elevenlabs' }, { headers: NO_STORE });
 }

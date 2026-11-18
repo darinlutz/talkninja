@@ -6,10 +6,12 @@ import {
   gradeSpokenAttempt,
   gradeSpokenWords,
   MAX_SPEAK_ATTEMPT_MS,
+  recognizerLabel,
   SCRIBE_SAMPLE_RATE,
   scribeLanguageCode,
   SPEAKING_PASS_SCORE,
   speechLocale,
+  type BrowserRecognitionReason,
   type SpokenWordGrade,
   type SpokenWordPart,
 } from '@/lib/speechPractice';
@@ -28,7 +30,10 @@ import { reportRateLimit } from '@/lib/rateLimitClient';
 // wrong). The microphone is allowed for this site only (Permissions-Policy in next.config.js).
 //
 // Recognition: ElevenLabs Scribe (scribe_v3_live). /api/speech-recognition gives a WebSocket URL with a single-use
-// token and the microphone is streamed straight to ElevenLabs (src/lib/scribeRecognizer.ts). When it answers
+// token and the microphone is streamed straight to ElevenLabs (src/lib/scribeRecognizer.ts). To start listening
+// quickly, the microphone is captured while the session is still being set up (and sent once it's open), and a
+// session is requested ahead of time when the pointer reaches the button or an attempt ends (kept SESSION_REUSE_MS,
+// under the token's 15 minutes). When it answers
 // { provider: 'browser' } (a language Scribe doesn't know, no ElevenLabs key, the Emergency AI Stop on), or Scribe
 // can't connect, the browser's own speech recognition (Web Speech API) is used. TalkNinja's server never receives the
 // audio; the transcript and score stay in this component (Privacy Policy, "Speaking practice").
@@ -86,11 +91,16 @@ const RECOGNITION_ERRORS: Record<string, string> = {
   'language-not-supported': 'Your browser can\'t recognize speech in this language yet.',
 };
 
-// How long to wait: for the learner to start speaking, after they pause, and for the whole attempt
+// How long to wait: for the learner to start speaking, after they pause (long enough for a learner to think of the
+// next word), and for the whole attempt. Scribe's live text lags the voice a little, so once it has reached the end
+// of the sentence it gets a moment longer than the browser's settled results.
 const START_TIMEOUT_MS = 10_000;
-const PAUSE_MS = 1_800;
+const PAUSE_MS = 2_500;
 const PAUSE_AFTER_WHOLE_SENTENCE_MS = 700;
+const SCRIBE_PAUSE_AFTER_WHOLE_SENTENCE_MS = 900;
 const MAX_ATTEMPT_MS = MAX_SPEAK_ATTEMPT_MS;
+// A session requested ahead of time is used if the learner presses Speak within this long
+const SESSION_REUSE_MS = 10 * 60_000;
 // Recognizers that end straight away (before hearing anything) are restarted at most this many times
 const MAX_QUICK_RESTARTS = 4;
 
@@ -146,6 +156,12 @@ interface Attempt {
   context: AudioContext | null;
   scribe: ScribeRecognizer | null;
   ready: boolean;
+  // Scribe: shown as listening while the session was still opening (audio is kept until it opens)
+  listeningEarly: boolean;
+  // Scribe: the session's URL has been handed to the recognizer
+  connected: boolean;
+  // Scribe: the learner finished before the session's URL arrived; finish as soon as it's connected
+  finishWhenConnected: boolean;
   // Final results from recognizers that have ended, and from the current one: each with the recognizer's alternatives
   committed: string[][];
   current: string[][];
@@ -182,6 +198,32 @@ function transcripts(attempt: Attempt): string[] {
   return Array.from(all).filter(Boolean).slice(0, 40);
 }
 
+// What /api/speech-recognition answered for one session request (status 0: it couldn't be reached)
+interface SessionAnswer {
+  status: number;
+  response: Response | null;
+  provider?: string;
+  url?: string;
+  reason?: BrowserRecognitionReason;
+  error?: string;
+}
+
+async function requestSession(language: string): Promise<SessionAnswer> {
+  try {
+    const response = await fetch('/api/speech-recognition', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ language }),
+    });
+    const body = (await response.clone().json().catch(() => null)) as Omit<SessionAnswer, 'status' | 'response'> | null;
+    return { status: response.status, response, ...body };
+  } catch {
+    return { status: 0, response: null };
+  }
+}
+
+const usableSession = (answer: SessionAnswer) => answer.provider === 'elevenlabs' && Boolean(answer.url);
+
 interface SpeakPracticeProps {
   // The sentence to say (the top text box) and its language
   expected: string;
@@ -195,11 +237,22 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
   // What the recognizer has heard so far (shown live while listening)
   const [liveText, setLiveText] = useState('');
   // The graded words and score of the last attempt, and the sentence it was for (a new sentence clears it)
-  const [result, setResult] = useState<{ for: string; parts: SpokenWordPart[]; score: number } | null>(null);
+  // `heard` is what the recognizer wrote down, shown under the score so a surprising grade can be checked
+  const [result, setResult] = useState<{ for: string; parts: SpokenWordPart[]; score: number; heard: string } | null>(null);
   const [message, setMessage] = useState('');
+  // A note that isn't an error (switched to the browser's recognition mid-attempt)
+  const [notice, setNotice] = useState('');
   // 0-1, how loud the microphone is while Scribe listens (the button's icon grows with it)
   const [level, setLevel] = useState(0);
+  // Which recognizer listens (or will): from the server's answer before the first attempt, then from each attempt
+  const [recognizer, setRecognizer] = useState<{
+    language: string;
+    provider: 'elevenlabs' | 'browser';
+    reason: BrowserRecognitionReason | null;
+  } | null>(null);
   const attemptRef = useRef<Attempt | null>(null);
+  // A session requested ahead of time (see SESSION_REUSE_MS)
+  const prefetchRef = useRef<{ language: string; at: number; answer: Promise<SessionAnswer> } | null>(null);
 
   // A new sentence (or language) starts fresh
   const [attemptKey, setAttemptKey] = useState(`${language}|${expected}`);
@@ -209,6 +262,60 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
     setLiveText('');
     setResult(null);
     setMessage('');
+    setNotice('');
+  }
+
+  // Which recognizer Speak will use, before the first attempt (nothing paid, not counted)
+  useEffect(() => {
+    if (scribeLanguageCode(language) === null) return;
+    let live = true;
+    fetch('/api/speech-recognition')
+      .then((response) => (response.ok ? response.json() : null))
+      .then((body: { provider?: string; reason?: BrowserRecognitionReason } | null) => {
+        if (!live || !body?.provider) return;
+        setRecognizer((current) =>
+          // An attempt's own answer is newer
+          current?.language === language
+            ? current
+            : { language, provider: body.provider === 'elevenlabs' ? 'elevenlabs' : 'browser', reason: body.reason ?? null }
+        );
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [language]);
+
+  const shownRecognizer =
+    scribeLanguageCode(language) === null
+      ? { provider: 'browser' as const, reason: 'language' as const }
+      : recognizer?.language === language
+        ? recognizer
+        : null;
+
+  // Requests the next attempt's session ahead of time (only when Scribe is expected to be used)
+  function prefetchSession() {
+    if (attemptRef.current || scribeLanguageCode(language) === null) return;
+    if (shownRecognizer?.provider === 'browser' && shownRecognizer.reason !== 'unavailable') return;
+    const held = prefetchRef.current;
+    if (held && held.language === language && Date.now() - held.at < SESSION_REUSE_MS) return;
+    const answer = requestSession(language);
+    const entry = { language, at: Date.now(), answer };
+    prefetchRef.current = entry;
+    // A refusal isn't kept: pressing Speak asks again and shows why
+    void answer.then((a) => {
+      if (!usableSession(a) && prefetchRef.current === entry) prefetchRef.current = null;
+    });
+  }
+
+  // The session for an attempt: the one requested ahead of time if it's still good, else a new one
+  function takeSession(forLanguage: string): Promise<SessionAnswer> {
+    const held = prefetchRef.current;
+    prefetchRef.current = null;
+    if (held && held.language === forLanguage && Date.now() - held.at < SESSION_REUSE_MS) {
+      return held.answer.then((a) => (usableSession(a) ? a : requestSession(forLanguage)));
+    }
+    return requestSession(forLanguage);
   }
 
   // Stops listening if the sentence changes or the tab closes mid-attempt
@@ -245,6 +352,7 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
 
   // Nothing heard at all: give up and say so. And never listen forever.
   function armTimers(attempt: Attempt) {
+    clearTimers(attempt);
     attempt.startedAt = Date.now();
     attempt.startTimer = window.setTimeout(() => {
       if (!attempt.heardSpeech) stopAttempt(attempt);
@@ -261,10 +369,12 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
     setLiveText(text);
     window.clearTimeout(attempt.startTimer);
     window.clearTimeout(attempt.pauseTimer);
-    const done = settled && reachedWholeSentence(attempt, text);
+    // Scribe only commits at the end, so its live text is what there is to go on
+    const scribe = attempt.engine === 'scribe';
+    const done = (settled || scribe) && reachedWholeSentence(attempt, text);
     attempt.pauseTimer = window.setTimeout(
       () => stopAttempt(attempt),
-      done ? PAUSE_AFTER_WHOLE_SENTENCE_MS : PAUSE_MS
+      done ? (scribe ? SCRIBE_PAUSE_AFTER_WHOLE_SENTENCE_MS : PAUSE_AFTER_WHOLE_SENTENCE_MS) : PAUSE_MS
     );
   }
 
@@ -275,9 +385,17 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
     if (attempt.engine === 'scribe') {
       // Commit and wait for the final transcript (the whole attempt, with its full context), then score
       setLevel(0);
-      if (attempt.scribe) setPhase('scoring');
-      if (attempt.scribe) void attempt.scribe.finish().then(() => finishAttempt(attempt));
-      else finishAttempt(attempt);
+      if (!attempt.scribe) {
+        finishAttempt(attempt);
+        return;
+      }
+      setPhase('scoring');
+      // The session's URL hasn't arrived yet: what was captured is sent once it has
+      if (!attempt.connected) {
+        attempt.finishWhenConnected = true;
+        return;
+      }
+      void attempt.scribe.finish().then(() => finishAttempt(attempt));
       return;
     }
     if (attempt.recognition) {
@@ -299,6 +417,8 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
     releaseAudio(attempt);
     setPhase('idle');
     setLevel(0);
+    // Ready for "Try Again" without waiting for a new session
+    if (attempt.engine === 'scribe' && attempt.ready) prefetchSession();
     if (attempt.failed) return;
 
     const heard = transcripts(attempt);
@@ -311,7 +431,7 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
     }
     const graded = gradeSpokenAttempt(attempt.target, heard, attempt.locale);
     setLiveText('');
-    setResult({ for: attempt.target, parts: graded.parts, score: graded.score });
+    setResult({ for: attempt.target, parts: graded.parts, score: graded.score, heard: heard[0] });
     playChime(graded.score >= SPEAKING_PASS_SCORE);
   }
 
@@ -402,10 +522,20 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
     recognition.start();
   }
 
-  // The browser's own recognition, for this attempt (when Scribe can't be used)
-  function startBrowserAttempt(attempt: Attempt): boolean {
+  // The browser's own recognition, for this attempt (when Scribe can't be used). `restarted`: the learner was already
+  // told to speak (Scribe was expected), so they're asked to say it again.
+  function startBrowserAttempt(attempt: Attempt, reason: BrowserRecognitionReason, restarted = false): boolean {
     attempt.engine = 'browser';
+    attempt.scribe?.abort();
+    attempt.scribe = null;
     releaseAudio(attempt);
+    setLevel(0);
+    setRecognizer({ language: attempt.language, provider: 'browser', reason });
+    if (restarted) {
+      setPhase('starting');
+      setLiveText('');
+      setNotice('Switched to your browser\'s speech recognition. Please say the phrase again when it says "Listening…".');
+    }
     const Constructor = recognitionConstructor();
     if (!Constructor) {
       failAttempt(attempt, 'Your browser doesn\'t support speech recognition. Try Chrome, Edge or Safari.');
@@ -428,36 +558,15 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
     finishAttempt(attempt);
   }
 
-  // ElevenLabs Scribe: the microphone (already opening) streams to the session /api/speech-recognition opens
-  async function startScribeAttempt(attempt: Attempt, microphone: Promise<MediaStream>) {
+  // ElevenLabs Scribe: the session is requested while the microphone opens; the microphone is captured as soon as it
+  // is open (the learner can speak) and streamed to the session once its URL arrives
+  async function startScribeAttempt(attempt: Attempt, microphone: Promise<MediaStream>, session: Promise<SessionAnswer>) {
     const current = () => attemptRef.current === attempt && !attempt.stopping;
-    let response: Response;
-    try {
-      response = await fetch('/api/speech-recognition', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ language: attempt.language }),
-      });
-    } catch {
-      if (current()) startBrowserAttempt(attempt);
-      return;
-    }
-    if (!current()) return;
-    if (await reportRateLimit(response)) {
-      failAttempt(attempt, 'You\'ve reached your AI limit for now, so Speak can\'t listen. Please try again later.');
-      return;
-    }
-    const body = (await response.json().catch(() => null)) as { provider?: string; url?: string; error?: string } | null;
-    if (!current()) return;
-    if (response.status === 401 || response.status === 403) {
-      failAttempt(attempt, body?.error ?? 'Please log in to practice speaking.');
-      return;
-    }
-    if (!response.ok || body?.provider !== 'elevenlabs' || !body.url) {
-      // Scribe isn't available for this language (or right now): use the browser's recognition
-      startBrowserAttempt(attempt);
-      return;
-    }
+    // When it's known Scribe will be used, the learner can start before the session is open
+    let expectScribe = shownRecognizer?.provider === 'elevenlabs';
+    void session.then((answer) => {
+      if (usableSession(answer)) expectScribe = true;
+    });
 
     let stream: MediaStream;
     try {
@@ -475,7 +584,6 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
 
     try {
       attempt.scribe = await startScribe({
-        url: body.url,
         sampleRate: SCRIBE_SAMPLE_RATE,
         context: attempt.context,
         stream,
@@ -483,6 +591,8 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
           onReady: () => {
             if (attemptRef.current !== attempt) return;
             attempt.ready = true;
+            setRecognizer({ language: attempt.language, provider: 'elevenlabs', reason: null });
+            if (attempt.listeningEarly || attempt.stopping) return;
             setPhase('listening');
             armTimers(attempt);
           },
@@ -504,19 +614,54 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
             // While finishing, score what was heard so far (finish() resolves)
             if (attemptRef.current !== attempt || attempt.stopping) return;
             // Couldn't connect at all: listen with the browser instead; once listening, say what went wrong
-            if (!attempt.ready && !attempt.stopping) {
+            if (!attempt.ready) {
               attempt.scribe = null;
-              startBrowserAttempt(attempt);
+              startBrowserAttempt(attempt, 'unavailable', attempt.listeningEarly);
               return;
             }
             failAttempt(attempt, text);
           },
         },
       });
-      if (!current()) attempt.scribe.abort();
     } catch {
-      if (current()) startBrowserAttempt(attempt);
+      if (current()) startBrowserAttempt(attempt, 'unsupported');
+      return;
     }
+    if (attemptRef.current !== attempt) {
+      attempt.scribe.abort();
+      return;
+    }
+    // Capturing: speak now (unless the session may yet say to use the browser instead)
+    if (expectScribe && !attempt.stopping) {
+      attempt.listeningEarly = true;
+      setPhase('listening');
+      armTimers(attempt);
+    }
+
+    const answer = await session;
+    if (attemptRef.current !== attempt || !attempt.scribe) return;
+    if (usableSession(answer)) {
+      attempt.connected = true;
+      attempt.scribe.connect(answer.url!);
+      if (attempt.finishWhenConnected) void attempt.scribe.finish().then(() => finishAttempt(attempt));
+      return;
+    }
+    attempt.scribe.abort();
+    attempt.scribe = null;
+    if (attempt.stopping) {
+      finishAttempt(attempt);
+      return;
+    }
+    if (answer.response && (await reportRateLimit(answer.response))) {
+      failAttempt(attempt, 'You\'ve reached your AI limit for now, so Speak can\'t listen. Please try again later.');
+      return;
+    }
+    if (answer.status === 401 || answer.status === 403) {
+      failAttempt(attempt, answer.error ?? 'Please log in to practice speaking.');
+      return;
+    }
+    // Scribe isn't available for this language (or right now): use the browser's recognition
+    startBrowserAttempt(attempt, answer.provider === 'browser' && answer.reason ? answer.reason : 'unavailable', attempt.listeningEarly);
   }
 
   const handleSpeak = () => {
@@ -540,6 +685,9 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
       context: null,
       scribe: null,
       ready: false,
+      listeningEarly: false,
+      connected: false,
+      finishWhenConnected: false,
       committed: [],
       current: [],
       interim: '',
@@ -554,13 +702,16 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
     setLiveText('');
     setResult(null);
     setMessage('');
+    setNotice('');
     setLevel(0);
     setPhase('starting');
 
     if (!useScribe) {
-      startBrowserAttempt(attempt);
+      startBrowserAttempt(attempt, 'language');
       return;
     }
+    // Asked for first, so it's on its way while the microphone opens
+    const session = takeSession(language);
     // Opened during the click, so the browser lets the audio context run and asks for the microphone straight away,
     // while the session is being opened
     const AudioContextClass =
@@ -568,20 +719,20 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
         ? undefined
         : window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AudioContextClass) {
-      startBrowserAttempt(attempt);
+      startBrowserAttempt(attempt, 'unsupported');
       return;
     }
     try {
       attempt.context = new AudioContextClass();
       void attempt.context.resume().catch(() => undefined);
     } catch {
-      startBrowserAttempt(attempt);
+      startBrowserAttempt(attempt, 'unsupported');
       return;
     }
     const microphone = openMicrophone();
     microphone.catch(() => undefined);
     attempt.microphone = microphone;
-    void startScribeAttempt(attempt, microphone);
+    void startScribeAttempt(attempt, microphone, session);
   };
 
   const shownResult = result && result.for === expected ? result : null;
@@ -599,6 +750,9 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
         <button
           type="button"
           onClick={handleSpeak}
+          onPointerEnter={prefetchSession}
+          onPointerDown={prefetchSession}
+          onFocus={prefetchSession}
           disabled={!expected.trim() || phase === 'scoring'}
           aria-pressed={listening}
           title={listening ? 'Stop and score' : 'Say the phrase above'}
@@ -652,6 +806,12 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
         </div>
       </div>
 
+      {shownRecognizer && (
+        <div className="practice-hint mt-1" data-recognizer={shownRecognizer.provider}>
+          {recognizerLabel(shownRecognizer.provider, shownRecognizer.reason, language)}
+        </div>
+      )}
+
       {spokenWords.some((part) => part.grade) && (
         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm" aria-hidden="true">
           {(Object.keys(WORD_STYLES) as SpokenWordGrade[]).map((grade) => (
@@ -668,7 +828,13 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
           {!passed && <span className="text-red-400">Try Again</span>}
         </div>
       )}
+      {shownResult?.heard && (
+        <div className="practice-hint mt-1">
+          Heard: <span lang={speechLocale(language)}>“{shownResult.heard}”</span>
+        </div>
+      )}
 
+      {notice && !message && <div className="practice-hint mt-2">{notice}</div>}
       {message && <div className="practice-error mt-2">{message}</div>}
     </div>
   );

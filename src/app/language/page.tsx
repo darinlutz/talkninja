@@ -489,27 +489,7 @@ function Language() {
     setMessage('');
 
     try {
-      const response = await fetch('/api/speak', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ text: writingWordText, gender: voice, language: learnLanguage }),
-      });
-      // A 429 for the AI limit opens the rate limit dialog
-      void reportRateLimit(response);
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to generate speech');
-      }
-
-      const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
-      audio.onended = () => URL.revokeObjectURL(audioUrl);
-      await audio.play();
-
+      await speakText(writingWordText, voice, learnLanguage);
       setStatus('idle');
     } catch (error) {
       setStatus('error');
@@ -701,36 +681,7 @@ function Language() {
     setFriendSpeaking(voice);
 
     try {
-      const response = await fetch('/api/speak', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ text, language: learnLanguage, gender: voice }),
-      });
-      // A 429 for the AI limit opens the rate limit dialog
-      void reportRateLimit(response);
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to generate speech');
-      }
-
-      const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
-
-      await new Promise<void>((resolve, reject) => {
-        audio.onended = () => {
-          URL.revokeObjectURL(audioUrl);
-          resolve();
-        };
-        audio.onerror = () => {
-          URL.revokeObjectURL(audioUrl);
-          reject(new Error('Failed to play audio'));
-        };
-        audio.play().catch(reject);
-      });
+      await speakText(text, voice, learnLanguage, { untilEnd: true });
     } catch (error) {
       setFriendMessage(
         error instanceof Error ? error.message : 'Failed to play audio. Please try again.'

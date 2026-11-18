@@ -5,7 +5,8 @@ import { assertAiServicesOn } from './aiKillSwitch';
 
 const API_URL = 'https://api.elevenlabs.io/v1/text-to-speech';
 const OUTPUT_FORMAT = 'mp3_44100_128';
-const TIMEOUT_MS = 20_000;
+// Flash v2.5 answers a sentence in well under a second; past this, the OpenAI voice says it instead (src/lib/speech.ts)
+const TIMEOUT_MS = 8_000;
 
 export const elevenLabsApiKey = (): string | undefined =>
   process.env.ELEVENLABS_API_KEY?.trim() || process.env.ELEVEN_LABS_API_KEY?.trim() || undefined;

@@ -84,6 +84,23 @@ export function scribeLanguageCode(language: string): string | null {
   return SCRIBE_LANGUAGE_CODES[language] ?? null;
 }
 
+// Why Speak listens with the browser's recognition instead of Scribe, as /api/speech-recognition reports it (the last
+// two are found in the browser: Scribe couldn't connect, or this browser can't stream audio to it)
+export type BrowserRecognitionReason = 'language' | 'not-configured' | 'stopped' | 'unavailable' | 'unsupported';
+
+// Shown under the Speak button, so the learner (and the owner, testing) can see which recognizer is listening
+export function recognizerLabel(provider: 'elevenlabs' | 'browser', reason: BrowserRecognitionReason | null, language: string): string {
+  if (provider === 'elevenlabs') return 'Speech recognition: ElevenLabs Scribe';
+  const why: Record<BrowserRecognitionReason, string> = {
+    language: `ElevenLabs doesn't support ${language}`,
+    'not-configured': 'ElevenLabs isn\'t set up',
+    stopped: 'AI services are paused',
+    unavailable: 'ElevenLabs couldn\'t connect',
+    unsupported: 'this browser can\'t stream to ElevenLabs',
+  };
+  return `Speech recognition: your browser's (${why[reason ?? 'unavailable']})`;
+}
+
 // Scribe hears 16 kHz mono 16-bit PCM (audio_format pcm_16000); the browser resamples the microphone to it
 export const SCRIBE_SAMPLE_RATE = 16_000;
 

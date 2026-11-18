@@ -224,25 +224,89 @@ export const playError = () =>
 export const MALE_VOICE = 'male';
 export const FEMALE_VOICE = 'female';
 
-// Speaks text (in `language`, the language of the text) through /api/speak and resolves once playback starts
-export async function speakText(text: string, voice: string, language: string): Promise<void> {
-  const response = await fetch('/api/speak', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text, gender: voice, language }),
-  });
-  // A 429 for the AI limit opens the rate limit dialog
-  void reportRateLimit(response);
+// Audio already played on this page, so pressing a speaker button again plays at once (no new request or paid
+// call). Kept in memory only, as object URLs, for the last SPEECH_CACHE_SIZE clips; a request being made is shared.
+const SPEECH_CACHE_SIZE = 40;
+const SPEECH_TIMEOUT_MS = 30_000;
+const speechCache = new Map<string, Promise<string>>();
+// The clip playing now: a new one stops it, so voices never talk over each other
+let playingAudio: HTMLAudioElement | null = null;
 
-  if (!response.ok) {
-    const data = await response.json();
-    throw new Error(data.error || 'Failed to generate speech');
+function speechAudioUrl(text: string, voice: string, language: string): Promise<string> {
+  const key = [language, voice, text].join('\u0000');
+  const cached = speechCache.get(key);
+  if (cached) {
+    speechCache.delete(key);
+    speechCache.set(key, cached);
+    return cached;
   }
+  const request = (async () => {
+    let response: Response;
+    try {
+      response = await fetch('/api/speak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, gender: voice, language }),
+        signal: typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(SPEECH_TIMEOUT_MS) : undefined,
+      });
+    } catch (error) {
+      const timedOut = error instanceof Error && error.name === 'TimeoutError';
+      throw new Error(
+        timedOut ? 'The voice took too long to load. Please try again.' : 'Couldn\'t reach the voice. Check your connection and try again.'
+      );
+    }
+    // A 429 for the AI limit opens the rate limit dialog
+    void reportRateLimit(response);
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || 'Failed to generate speech');
+    }
+    return URL.createObjectURL(await response.blob());
+  })();
+  speechCache.set(key, request);
+  // Failures aren't kept: the next press tries again
+  request.catch(() => {
+    if (speechCache.get(key) === request) speechCache.delete(key);
+  });
+  while (speechCache.size > SPEECH_CACHE_SIZE) {
+    const [oldest, url] = speechCache.entries().next().value!;
+    speechCache.delete(oldest);
+    url.then((u) => URL.revokeObjectURL(u), () => undefined);
+  }
+  return request;
+}
 
-  const audioUrl = URL.createObjectURL(await response.blob());
-  const audio = new Audio(audioUrl);
-  audio.onended = () => URL.revokeObjectURL(audioUrl);
-  await audio.play();
+// Speaks text (in `language`, the language of the text) through /api/speak. Resolves once playback starts, or with
+// untilEnd once it has finished (or was stopped by another clip), so callers can chain clips.
+export async function speakText(
+  text: string,
+  voice: string,
+  language: string,
+  options: { untilEnd?: boolean } = {}
+): Promise<void> {
+  const url = await speechAudioUrl(text, voice, language);
+  playingAudio?.pause();
+  const audio = new Audio(url);
+  playingAudio = audio;
+  const ended = new Promise<void>((resolve, reject) => {
+    audio.onended = () => resolve();
+    // Stopped by a newer clip
+    audio.onpause = () => {
+      if (!audio.ended) resolve();
+    };
+    audio.onerror = () => reject(new Error('Failed to play audio. Please try again.'));
+  });
+  ended.catch(() => undefined);
+  try {
+    await audio.play();
+  } catch (error) {
+    // Some browsers (Safari) only let sound start right after a tap; the clip is ready now, so a second tap plays it
+    if (error instanceof Error && error.name === 'NotAllowedError') {
+      throw new Error('Your browser blocked the sound. Press the speaker button again to play it.');
+    }
+    throw new Error('Failed to play audio. Please try again.');
+  }
+  if (options.untilEnd) await ended;
 }
 
 // Questions per test; the passing score is shared with the server
