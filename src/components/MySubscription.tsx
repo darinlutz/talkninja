@@ -16,14 +16,14 @@ const BILLING_MESSAGES: Record<string, { ok: boolean; text: string }> = {
 };
 
 function statusBadge(status: string | null): string {
-  if (status === 'active' || status === 'trialing') return 'bg-green-100 text-green-700';
-  if (status === 'past_due' || status === 'unpaid' || status === 'incomplete' || status === 'paused') return 'bg-amber-100 text-amber-800';
-  if (status === 'canceled' || status === 'incomplete_expired') return 'bg-red-100 text-red-700';
-  return 'bg-powder-500/15 text-powder-600';
+  if (status === 'active' || status === 'trialing') return 'account-badge-green';
+  if (status === 'past_due' || status === 'unpaid' || status === 'incomplete' || status === 'paused') return 'account-badge-amber';
+  if (status === 'canceled' || status === 'incomplete_expired') return 'account-badge-red';
+  return 'account-badge-blue';
 }
 
-const button =
-  'w-full px-6 py-3 rounded-lg font-semibold transition-colors text-powder-600 bg-white border border-powder-500/50 hover:bg-powder-500/10';
+// The Account page's dark design (src/app/landing.css, .account-page)
+const button = 'practice-btn-outline';
 
 // The Account page's My Subscription: the plan, price, Stripe status, billing dates, cancellation, card and invoices,
 // read from Stripe on each visit (src/lib/stripeBilling.ts getSubscriptionOverview), with Subscribe, Manage
@@ -56,20 +56,20 @@ export default function MySubscription({
   const price = overview?.price ?? monthlyPrice;
 
   return (
-    <div id="subscription" className="bg-slate-50 rounded-xl border border-slate-200 p-6 sm:p-8 scroll-mt-24">
-      <h2 className="text-2xl font-bold text-dark-blue mb-4">My Subscription</h2>
+    <section id="subscription" className="practice-panel account-section">
+      <h2>My Subscription</h2>
 
       {message && (
         <p
           role="status"
-          className={`mb-4 p-3 rounded-lg text-sm ${message.ok ? 'bg-green-50 border border-green-200 text-green-700' : 'bg-red-50 border border-red-200 text-red-700'}`}
+          className={`mb-4 ${message.ok ? 'practice-success' : 'practice-error'}`}
         >
           {message.text}
         </p>
       )}
 
       {live && paymentIssue === 'payment_failed' && (
-        <p role="alert" className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+        <p role="alert" className="mb-4 practice-error">
           Your last payment didn’t go through. Stripe will try again; update your payment method below to keep your
           subscription.
           {overview?.openInvoiceUrl && (
@@ -83,7 +83,7 @@ export default function MySubscription({
         </p>
       )}
       {live && paymentIssue === 'action_required' && (
-        <p role="alert" className="mb-4 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+        <p role="alert" className="mb-4 practice-warning">
           Your bank needs you to confirm the payment.{' '}
           {overview?.openInvoiceUrl ? (
             <a href={overview.openInvoiceUrl} className="font-semibold underline" target="_blank" rel="noopener noreferrer">
@@ -96,11 +96,11 @@ export default function MySubscription({
       )}
 
       {status ? (
-        <dl className="divide-y divide-slate-200 bg-white rounded-lg border border-slate-200">
+        <dl className="account-list">
           <Row label="Plan">{overview?.planName ?? 'TalkNinja Monthly Subscription'}</Row>
           <Row label="Price">{price ? `${price} / month` : '—'}</Row>
           <Row label="Status">
-            <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${statusBadge(status)}`}>
+            <span className={`account-badge ${statusBadge(status)}`}>
               {STRIPE_STATUS_LABELS[status] ?? status}
             </span>
           </Row>
@@ -116,13 +116,13 @@ export default function MySubscription({
           <Row label="Started">{formatDate(overview?.startedAt ?? null)}</Row>
         </dl>
       ) : (
-        <p className="bg-white rounded-lg border border-slate-200 px-4 py-3 text-slate-600">
+        <p className="account-empty">
           You don’t have a subscription. The Monthly Subscription{price ? ` is ${price} a month and` : ''} opens every
           belt’s Training and Tests, free practice, the Translator and AI Friend.
         </p>
       )}
 
-      <div className="mt-6 space-y-3">
+      <div className="account-actions">
         {showSubscribe && (
           <form action="/api/create-checkout-session" method="POST">
             <button
@@ -130,7 +130,7 @@ export default function MySubscription({
               name="plan"
               value="monthly"
               disabled={!monthlyPrice}
-              className="w-full px-6 py-3 rounded-lg font-semibold text-white bg-gradient-to-r from-powder-500 to-powder-600 hover:from-powder-600 hover:to-powder-500 transition-colors disabled:opacity-60"
+              className="practice-btn"
             >
               Subscribe{monthlyPrice ? ` (${monthlyPrice} / month)` : ''}
             </button>
@@ -161,23 +161,23 @@ export default function MySubscription({
       </div>
 
       {overview && overview.invoices.length > 0 && (
-        <details className="mt-6 bg-white rounded-lg border border-slate-200">
-          <summary className="cursor-pointer px-4 py-3 font-semibold text-powder-600">View Billing History</summary>
-          <ul className="divide-y divide-slate-200 text-sm">
+        <details className="mt-6 account-details">
+          <summary>View Billing History</summary>
+          <ul className="account-list text-sm">
             {overview.invoices.map((invoice) => (
               <li key={invoice.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2">
-                <span className="text-dark-blue">
+                <span className="account-text">
                   {formatDate(invoice.created)} · {invoice.amount}
-                  <span className="ml-2 text-xs capitalize text-slate-500">{invoice.status}</span>
+                  <span className="ml-2 text-xs capitalize account-note">{invoice.status}</span>
                 </span>
                 <span className="flex gap-3">
                   {invoice.hostedInvoiceUrl && (
-                    <a href={invoice.hostedInvoiceUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-powder-600 hover:underline">
+                    <a href={invoice.hostedInvoiceUrl} target="_blank" rel="noopener noreferrer" className="account-link">
                       {invoice.status === 'paid' ? 'Receipt' : 'View'}
                     </a>
                   )}
                   {invoice.pdfUrl && (
-                    <a href={invoice.pdfUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-powder-600 hover:underline">
+                    <a href={invoice.pdfUrl} target="_blank" rel="noopener noreferrer" className="account-link">
                       PDF
                     </a>
                   )}
@@ -187,15 +187,15 @@ export default function MySubscription({
           </ul>
         </details>
       )}
-    </div>
+    </section>
   );
 }
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex justify-between items-center gap-4 px-4 py-3">
-      <dt className="text-sm font-medium text-slate-500">{label}</dt>
-      <dd className="text-dark-blue font-medium text-right">{children}</dd>
+    <div className="account-row">
+      <dt>{label}</dt>
+      <dd>{children}</dd>
     </div>
   );
 }

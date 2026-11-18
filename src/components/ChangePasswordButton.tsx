@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import { MIN_PASSWORD_LENGTH } from '@/lib/passwordRules';
 
-const inputClass =
-  'w-full px-4 py-3 bg-white border border-slate-300 rounded-lg text-dark-blue placeholder-slate-400 focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors';
+// The Account page's dark fields (src/app/landing.css; the page wraps everything in .landing)
+const inputClass = 'practice-field';
 
 // The My Account page's Change Password button. Opens a form for the current
 // password and the new one twice (PUT /api/account/password). Afterwards
@@ -53,37 +53,37 @@ export default function ChangePasswordButton() {
   };
 
   return (
-    <div className="mt-3">
+    <div className="account-actions">
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="w-full px-6 py-3 rounded-lg font-semibold text-powder-600 bg-white border border-powder-600 hover:bg-powder-500/10 transition-colors"
+        className="practice-btn-outline"
       >
         Change Password
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4" onClick={close}>
+        <div className="account-overlay" onClick={close}>
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="changePasswordTitle"
-            className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-xl bg-white p-6 shadow-xl"
+            className="account-dialog"
             onClick={(event) => event.stopPropagation()}
           >
-            <h2 id="changePasswordTitle" className="text-xl font-bold text-dark-blue">
+            <h2 id="changePasswordTitle">
               {done ? 'Your password has been changed' : 'Change Password'}
             </h2>
             {done ? (
               <>
-                <p className="mt-2 text-slate-600">
+                <p className="mt-2 account-intro">
                   You’ve been signed out on every other browser and device. You’re still signed in here.
                 </p>
                 <button
                   type="button"
                   autoFocus
                   onClick={close}
-                  className="mt-6 w-full px-4 py-2 rounded-lg font-semibold text-white bg-gradient-to-r from-powder-500 to-powder-600 hover:from-powder-600 hover:to-powder-500 transition-colors"
+                  className="mt-4 practice-btn practice-btn-wide"
                 >
                   Done
                 </button>
@@ -91,7 +91,7 @@ export default function ChangePasswordButton() {
             ) : (
               <form onSubmit={handleSubmit} className="mt-4 space-y-4">
                 <div>
-                  <label htmlFor="currentPassword" className="block mb-2 text-sm font-medium text-dark-blue">
+                  <label htmlFor="currentPassword" className="practice-label">
                     Current Password
                   </label>
                   <input
@@ -106,9 +106,9 @@ export default function ChangePasswordButton() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="newPassword" className="block mb-2 text-sm font-medium text-dark-blue">
+                  <label htmlFor="newPassword" className="practice-label">
                     New Password{' '}
-                    <span className="text-slate-500 font-normal">(at least {MIN_PASSWORD_LENGTH} characters)</span>
+                    <span className="font-normal">(at least {MIN_PASSWORD_LENGTH} characters)</span>
                   </label>
                   <input
                     id="newPassword"
@@ -122,7 +122,7 @@ export default function ChangePasswordButton() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="confirmNewPassword" className="block mb-2 text-sm font-medium text-dark-blue">
+                  <label htmlFor="confirmNewPassword" className="practice-label">
                     Confirm New Password
                   </label>
                   <input
@@ -137,21 +137,21 @@ export default function ChangePasswordButton() {
                   />
                 </div>
 
-                {error && <p className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{error}</p>}
+                {error && <p className="practice-error">{error}</p>}
 
-                <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2">
+                <div className="account-dialog-actions">
                   <button
                     type="button"
                     onClick={close}
                     disabled={saving}
-                    className="flex-1 px-4 py-2 rounded-lg font-semibold text-slate-600 bg-white border border-slate-300 hover:bg-slate-50 transition-colors disabled:opacity-60"
+                    className="practice-btn-ghost"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={saving}
-                    className="flex-1 px-4 py-2 rounded-lg font-semibold text-white bg-gradient-to-r from-powder-500 to-powder-600 hover:from-powder-600 hover:to-powder-500 transition-colors disabled:opacity-60"
+                    className="practice-btn"
                   >
                     {saving ? 'Saving…' : 'Change Password'}
                   </button>

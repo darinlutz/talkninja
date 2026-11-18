@@ -38,9 +38,9 @@ export default function PasswordConfirmDialog({
         e.preventDefault();
         if (!busy) onClose();
       }}
-      className="m-auto w-[min(100%-2rem,28rem)] max-h-[90vh] rounded-xl bg-white p-6 text-dark-blue shadow-xl backdrop:bg-slate-900/50"
+      className="account-dialog"
     >
-      <h2 id={titleId} className="text-xl font-bold">
+      <h2 id={titleId}>
         {title}
       </h2>
       {children}

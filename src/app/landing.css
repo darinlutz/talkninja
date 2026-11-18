@@ -349,3 +349,62 @@
 .landing .auth-link { font-weight: 600; color: oklch(0.75 0.15 245); }
 .landing .auth-link:hover { text-decoration: underline; color: oklch(0.75 0.15 245); }
 .landing .auth-submit { padding-block: .85rem; font-size: 1rem; }
+
+/* My Account (src/app/account/page.tsx and the components it shows: MySubscription, ChangePasswordButton, Language
+   Setup, SheetSetup, CustomAgentInstructionsForm, MyAiUsageCard, PrivacyDataSection and their dialogs): the training
+   hall's dark page, each section in a practice panel */
+.landing.account-page { min-height: calc(100vh - 4rem); background: radial-gradient(ellipse at top, color-mix(in oklab, var(--primary) 22%, oklch(0.16 0.04 262)) 0%, oklch(0.13 0.035 262) 60%); color: var(--ink-inverse); }
+.landing .account-main { width: min(720px, calc(100% - 32px)); margin-inline: auto; padding-block: 3rem 5rem; display: grid; gap: 1.5rem; }
+.landing .account-main .practice-header { margin-bottom: .75rem; }
+.landing .account-section { scroll-margin-top: 6rem; }
+.landing .account-section h2 { font-size: 1.5rem; font-weight: 700; letter-spacing: -.02em; color: var(--ink-inverse); margin-bottom: .75rem; }
+.landing .account-intro { color: var(--inverse-muted); line-height: 1.6; margin-bottom: 1.25rem; }
+.landing .account-note { font-size: .875rem; color: oklch(0.68 0.03 250); line-height: 1.55; }
+.landing .account-text { color: var(--ink-inverse); }
+.landing .account-link { font-weight: 600; color: oklch(0.75 0.15 245); }
+.landing .account-link:hover { text-decoration: underline; color: oklch(0.75 0.15 245); }
+.landing .account-list { border-radius: .9rem; border: 1px solid oklch(1 0 0 / 10%); background: oklch(0.13 0.035 262); overflow: hidden; }
+.landing .account-list > * + * { border-top: 1px solid oklch(1 0 0 / 8%); }
+.landing .account-row { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .8rem 1rem; }
+.landing .account-row > dt { font-size: .875rem; font-weight: 500; color: var(--inverse-muted); }
+.landing .account-row > dd { font-weight: 500; color: var(--ink-inverse); text-align: right; }
+.landing .account-empty { border-radius: .9rem; border: 1px solid oklch(1 0 0 / 10%); background: oklch(0.13 0.035 262); padding: .8rem 1rem; color: var(--inverse-muted); }
+.landing .account-badge { display: inline-block; padding: .2rem .75rem; border-radius: 999px; font-size: .8rem; font-weight: 600; border: 1px solid transparent; }
+.landing .account-badge-green { color: oklch(0.85 0.14 150); background: oklch(0.45 0.12 150 / 30%); border-color: oklch(0.7 0.15 150 / 40%); }
+.landing .account-badge-red { color: oklch(0.85 0.1 25); background: oklch(0.45 0.15 25 / 30%); border-color: oklch(0.65 0.18 25 / 40%); }
+.landing .account-badge-amber { color: oklch(0.88 0.12 85); background: oklch(0.5 0.12 75 / 30%); border-color: oklch(0.75 0.14 80 / 40%); }
+.landing .account-badge-blue { color: oklch(0.85 0.1 245); background: color-mix(in oklab, var(--primary) 28%, transparent); border-color: color-mix(in oklab, var(--primary) 55%, transparent); }
+.landing .account-badge-neutral { color: var(--inverse-muted); background: oklch(1 0 0 / 7%); border-color: oklch(1 0 0 / 14%); }
+.landing .account-actions { display: grid; gap: .75rem; margin-top: 1.5rem; }
+.landing .account-actions .practice-btn, .landing .account-actions .practice-btn-outline, .landing .account-actions .practice-btn-ghost, .landing .account-actions .practice-btn-danger { width: 100%; padding-block: .8rem; }
+.landing .practice-btn-danger { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; padding: .6rem 1rem; border-radius: .75rem; font-weight: 700; white-space: nowrap; border: 1px solid oklch(0.65 0.18 25 / 60%); color: oklch(0.82 0.1 25); background: oklch(0.45 0.15 25 / 15%); transition: background .2s; }
+.landing .practice-btn-danger:hover:not(:disabled) { background: oklch(0.45 0.15 25 / 30%); }
+.landing .practice-btn-danger:disabled { opacity: .45; cursor: not-allowed; }
+.landing .practice-btn-xs { padding: .25rem .7rem; font-size: .75rem; border-radius: .5rem; }
+.landing .practice-warning { padding: .9rem 1rem; border-radius: .75rem; border: 1px solid oklch(0.75 0.14 80 / 45%); background: oklch(0.42 0.1 75 / 30%); color: oklch(0.92 0.08 85); font-size: .9rem; }
+.landing .account-details { border-radius: .9rem; border: 1px solid oklch(1 0 0 / 10%); background: oklch(0.13 0.035 262); }
+.landing .account-details > summary { cursor: pointer; padding: .8rem 1rem; font-weight: 600; color: var(--ink-inverse); }
+.landing .account-details > summary:hover { color: oklch(0.82 0.1 250); }
+.landing .account-details > ul:not(.account-list) { padding: 0 1rem .9rem 2.25rem; list-style: disc; display: grid; gap: .3rem; font-size: .875rem; color: var(--inverse-muted); }
+.landing .account-details > .account-list { border-width: 1px 0 0; border-radius: 0; background: transparent; }
+.landing .account-table { width: 100%; font-size: .875rem; border-collapse: separate; border-spacing: 0; border-radius: .9rem; border: 1px solid oklch(1 0 0 / 10%); background: oklch(0.13 0.035 262); overflow: hidden; }
+.landing .account-table th { padding: .75rem 1rem; font-weight: 500; color: var(--inverse-muted); border-bottom: 1px solid oklch(1 0 0 / 10%); }
+.landing .account-table td { padding: .75rem 1rem; font-weight: 500; }
+.landing .account-table tbody tr + tr td { border-top: 1px solid oklch(1 0 0 / 8%); }
+.landing .account-table td:first-child { color: var(--inverse-muted); }
+.landing .account-table td:not(:first-child) { text-align: right; color: var(--ink-inverse); font-variant-numeric: tabular-nums; }
+.landing .account-choice { display: flex; align-items: center; gap: .75rem; padding: .75rem 1rem; border-radius: .75rem; border: 1px solid oklch(1 0 0 / 12%); cursor: pointer; color: var(--ink-inverse); transition: background .2s, border-color .2s; }
+.landing .account-choice:hover { background: oklch(1 0 0 / 5%); }
+.landing .account-choice-selected { border-color: color-mix(in oklab, var(--primary) 80%, white); background: color-mix(in oklab, var(--primary) 18%, transparent); }
+.landing .account-choice input { accent-color: var(--primary); }
+/* The Account page's dialogs (inside .landing, so they share the dark panel) */
+.landing .account-overlay { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding-inline: 1rem; background: oklch(0.1 0.03 262 / 70%); backdrop-filter: blur(4px); }
+.landing .account-dialog { width: 100%; max-width: 28rem; max-height: 90vh; overflow-y: auto; border-radius: 1.25rem; border: 1px solid oklch(1 0 0 / 12%); background: radial-gradient(ellipse at top, color-mix(in oklab, var(--primary) 22%, oklch(0.18 0.04 262)) 0%, oklch(0.15 0.035 262) 75%); color: var(--ink-inverse); padding: 1.5rem; box-shadow: 0 40px 100px -40px color-mix(in oklab, var(--primary) 70%, transparent); }
+.landing dialog.account-dialog { margin: auto; width: min(100% - 2rem, 28rem); }
+.landing dialog.account-dialog::backdrop { background: oklch(0.1 0.03 262 / 70%); backdrop-filter: blur(4px); }
+.landing .account-dialog h2 { font-size: 1.35rem; font-weight: 700; letter-spacing: -.02em; color: var(--ink-inverse); }
+.landing .account-dialog .practice-label { margin-bottom: .45rem; }
+.landing .account-dialog-actions { display: flex; flex-direction: column-reverse; gap: .75rem; margin-top: 1.5rem; }
+.landing .account-dialog-actions > * { flex: 1 1 0; }
+@media (min-width: 640px) { .landing .account-dialog-actions { flex-direction: row; } }
+@media (max-width: 700px) { .landing .account-main { padding-block: 2rem 3.5rem; } }

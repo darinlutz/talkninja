@@ -15,7 +15,7 @@ export default function DeleteLanguageButton({ language }: { language: string })
       <input type="hidden" name="language" value={language} />
       <button
         type="submit"
-        className="px-3 py-1 text-xs font-semibold text-red-600 bg-white border border-red-300 rounded-lg hover:bg-red-50 transition-colors"
+        className="practice-btn-danger practice-btn-xs"
       >
         Delete
       </button>

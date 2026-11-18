@@ -56,17 +56,17 @@ export default function LanguageSetupForm({
     });
   };
 
-  const selectClassName =
-    'px-2 py-1 text-sm bg-white border border-slate-300 rounded-lg text-dark-blue focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors';
+  // The Account page's dark design (src/app/landing.css)
+  const selectClassName = 'practice-select';
 
   return (
     <div>
-      <p className="text-slate-600 mb-6">
+      <p className="account-intro">
         Every tab on the Language page uses these languages.
       </p>
 
       <div className="flex items-center gap-2 flex-wrap">
-        <label htmlFor="userLanguage" className="text-sm font-medium text-dark-blue">
+        <label htmlFor="userLanguage" className="practice-label">
           I speak
         </label>
         <select
@@ -82,7 +82,7 @@ export default function LanguageSetupForm({
             </option>
           ))}
         </select>
-        <label htmlFor="learnLanguage" className="text-sm font-medium text-dark-blue ml-4">
+        <label htmlFor="learnLanguage" className="practice-label sm:ml-4">
           and want to learn
         </label>
         <select
@@ -102,7 +102,7 @@ export default function LanguageSetupForm({
 
       {message && (
         <p
-          className={`mt-3 text-sm ${status === 'error' ? 'text-red-700' : 'text-green-700'}`}
+          className={`mt-3 ${status === 'error' ? 'practice-error' : 'practice-success'}`}
           role="status"
         >
           {message}

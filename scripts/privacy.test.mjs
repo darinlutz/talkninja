@@ -30,7 +30,7 @@ import { MINIMUM_AGE, POLICY_VERSIONS, acceptsCurrentTerms } from '../src/lib/po
 import { RETENTION_KEYS, RETENTION_RULES, cutoff, retentionDays } from '../src/lib/retentionRules.ts';
 import { AI_MODELS, AI_MODEL_PROVIDERS } from '../src/lib/aiModelList.ts';
 import { EXPORTED_TABLES, NOT_EXPORTED } from '../src/lib/personalDataExport.ts';
-import { SPEAKING_PASS_SCORE, SPEECH_RECOGNITION_LOCALES, bestSpokenAttempt, gradeSpokenWords, scoreSpokenAttempt } from '../src/lib/speechPractice.ts';
+import { SPEAKING_PASS_SCORE, SPEECH_RECOGNITION_LOCALES, gradeSpokenAttempt, gradeSpokenWords, scoreSpokenAttempt } from '../src/lib/speechPractice.ts';
 import { LANGUAGES } from '../src/lib/languages.ts';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -228,7 +228,11 @@ describe('speaking practice scores', () => {
     assert.ok(scoreSpokenAttempt('Good morning', 'banana', 'en-US') < SPEAKING_PASS_SCORE);
   });
   test('the best alternative is used, and every language has a recognition locale', () => {
-    assert.deepEqual(bestSpokenAttempt('good night', ['good knight', 'good night']), { transcript: 'good night', score: 100 });
+    assert.equal(scoreSpokenAttempt('good night', 'good knight', 'en-US'), 100);
+    // Each word keeps its best result across the alternatives
+    const across = gradeSpokenAttempt('good morning friend', ['good mourning fiend', 'could morning friend']);
+    assert.equal(across.score, 100);
+    assert.equal(scoreSpokenAttempt('good morning friend', 'good banana friend', 'en-US') < SPEAKING_PASS_SCORE, true);
     assert.equal(SPEAKING_PASS_SCORE, 80);
     for (const language of LANGUAGES) assert.ok(SPEECH_RECOGNITION_LOCALES[language], language);
   });
@@ -237,11 +241,16 @@ describe('speaking practice scores', () => {
     assert.deepEqual(gradeSpokenWords('Tôi muốn uống', '', 'vi-VN'), []);
     // Still speaking: only the words reached so far, in the sentence's own spelling
     assert.deepEqual(graded(gradeSpokenWords('Tôi muốn uống cà phê.', 'tôi muốn', 'vi-VN')), ['Tôi:correct', 'muốn:correct']);
-    // One slip in a long word is still correct; in a short word it's close
+    // The benefit of the doubt: a small slip (a missing letter, a missing tone mark, a doubled letter, a homophone
+    // spelling, a number as digits, a filler word) is still correct; a different word is wrong
     assert.deepEqual(graded(gradeSpokenWords('good morning', 'good mornin', 'en-US', true)), ['good:correct', 'morning:correct']);
-    assert.deepEqual(graded(gradeSpokenWords('good morning', 'goo morning', 'en-US', true)), ['good:close', 'morning:correct']);
-    // A wrong tone mark (short word) is close; a different word is wrong
-    assert.deepEqual(graded(gradeSpokenWords('Tôi muốn uống', 'tôi muôn uống', 'vi-VN', true)), ['Tôi:correct', 'muốn:close', 'uống:correct']);
+    assert.deepEqual(graded(gradeSpokenWords('good morning', 'goo morning', 'en-US', true)), ['good:correct', 'morning:correct']);
+    assert.deepEqual(graded(gradeSpokenWords('Tôi muốn uống', 'tôi muôn uống', 'vi-VN', true)), ['Tôi:correct', 'muốn:correct', 'uống:correct']);
+    assert.deepEqual(graded(gradeSpokenWords('Tôi muốn uống', 'toi muon uong', 'vi-VN', true)), ['Tôi:correct', 'muốn:correct', 'uống:correct']);
+    assert.deepEqual(graded(gradeSpokenWords('I want to go', 'I want too go', 'en-US', true)), ['I:correct', 'want:correct', 'to:correct', 'go:correct']);
+    assert.deepEqual(graded(gradeSpokenWords('I have two cats', 'I have 2 cats', 'en-US', true)), ['I:correct', 'have:correct', 'two:correct', 'cats:correct']);
+    assert.deepEqual(graded(gradeSpokenWords('the big dog', 'the um big dog', 'en-US', true)), ['the:correct', 'big:correct', 'dog:correct']);
+    assert.deepEqual(graded(gradeSpokenWords('cat', 'car', 'en-US', true)), ['cat:close']);
     assert.deepEqual(graded(gradeSpokenWords('good morning friend', 'good banana friend', 'en-US', true)), ['good:correct', 'morning:wrong', 'friend:correct']);
     // Finished: words never said are wrong, and the sentence's punctuation comes back
     const finished = gradeSpokenWords('Hello there!', 'hello', 'en-US', true);

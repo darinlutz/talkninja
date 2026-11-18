@@ -14,30 +14,32 @@ export default function MyAiUsageCard({ day, week }: { day: OwnAiUsage; week: Ow
   ];
 
   return (
-    <div className="bg-slate-50 rounded-xl border border-slate-200 p-6 sm:p-8">
-      <h2 className="text-2xl font-bold text-dark-blue mb-2">My AI Usage</h2>
-      <p className="text-slate-600 mb-4">
+    <section className="practice-panel account-section">
+      <h2>My AI Usage</h2>
+      <p className="account-intro">
         Your AI requests: translations, sentences, tests, voices and AI Friend replies. Weighted calls are what count
         toward any usage limit.
       </p>
-      <table className="w-full text-sm bg-white rounded-lg border border-slate-200">
+      <div className="overflow-x-auto">
+      <table className="account-table">
         <thead>
-          <tr className="text-slate-500 border-b border-slate-200">
-            <th className="px-4 py-3 text-left font-medium" />
-            <th className="px-4 py-3 text-right font-medium">Last 24 hours</th>
-            <th className="px-4 py-3 text-right font-medium">Last 7 days</th>
+          <tr>
+            <th className="text-left" />
+            <th className="text-right">Last 24 hours</th>
+            <th className="text-right">Last 7 days</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-200">
+        <tbody>
           {measures.map((m) => (
             <tr key={m.label}>
-              <td className="px-4 py-3 text-slate-500 font-medium">{m.label}</td>
-              <td className="px-4 py-3 text-right tabular-nums text-dark-blue font-medium">{number(m.value(day))}</td>
-              <td className="px-4 py-3 text-right tabular-nums text-dark-blue font-medium">{number(m.value(week))}</td>
+              <td>{m.label}</td>
+              <td>{number(m.value(day))}</td>
+              <td>{number(m.value(week))}</td>
             </tr>
           ))}
         </tbody>
       </table>
-    </div>
+      </div>
+    </section>
   );
 }

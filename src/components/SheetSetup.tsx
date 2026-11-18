@@ -106,7 +106,7 @@ export default function SheetSetup() {
 
   return (
     <div>
-      <p className="text-slate-600 mb-6">
+      <p className="account-intro">
         Paste a link to your own Google Sheet of vocabulary to practice with it instead of the
         default sheet. The sheet must be shared as &quot;Anyone with the link&quot; and use the same
         layout as the default sheet.
@@ -114,7 +114,7 @@ export default function SheetSetup() {
 
       <div className="space-y-4">
         <div>
-          <label htmlFor="sheetLink" className="block text-sm font-medium text-dark-blue mb-2">
+          <label htmlFor="sheetLink" className="practice-label mb-2">
             Google Sheet Link
           </label>
           <input
@@ -131,18 +131,18 @@ export default function SheetSetup() {
               if (e.key === 'Enter') handleConnectSheet();
             }}
             placeholder="https://docs.google.com/spreadsheets/d/..."
-            className="w-full px-4 py-3 bg-white border border-slate-300 rounded-lg text-dark-blue placeholder-slate-400 focus:outline-none focus:border-powder-600 focus:ring-1 focus:ring-powder-500 transition-colors"
+            className="practice-field"
           />
         </div>
 
-        <p className="text-sm text-slate-600">
+        <p className="account-note">
           Currently using:{' '}
           {connectedSheetLink ? (
             <a
               href={connectedSheetLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-powder-600 underline break-all"
+              className="account-link break-all"
             >
               your Google Sheet
             </a>
@@ -153,18 +153,14 @@ export default function SheetSetup() {
 
         {/* Status Message */}
         {sheetMessage && (
-          <div
-            className={`p-3 rounded-lg text-sm ${
-              sheetStatus === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
-            }`}
-          >
+          <div className={sheetStatus === 'error' ? 'practice-error' : 'practice-success'}>
             {sheetMessage}
           </div>
         )}
 
         {/* Offer to erase a wrongly formatted sheet and fill it with samples */}
         {sheetResetOffer && (
-          <div className="p-4 rounded-lg bg-amber-50 border border-amber-300 text-amber-900 text-sm space-y-3">
+          <div className="practice-warning space-y-3">
             {sheetResetOffer.canReset ? (
               <>
                 <p className="font-semibold">
@@ -181,7 +177,7 @@ export default function SheetSetup() {
                     type="button"
                     onClick={handleResetSheet}
                     disabled={sheetStatus === 'loading'}
-                    className="px-4 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="practice-btn-danger"
                   >
                     Erase Sheet and Add Sample Words
                   </button>
@@ -189,7 +185,7 @@ export default function SheetSetup() {
                     type="button"
                     onClick={() => setSheetResetOffer(null)}
                     disabled={sheetStatus === 'loading'}
-                    className="px-4 py-2 bg-white border border-slate-300 text-dark-blue font-bold rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="practice-btn-ghost"
                   >
                     Cancel
                   </button>
@@ -205,12 +201,12 @@ export default function SheetSetup() {
           </div>
         )}
 
-        <div className="pt-4 space-y-2">
+        <div className="account-actions">
           <button
             type="button"
             onClick={handleConnectSheet}
             disabled={!sheetLink.trim() || sheetStatus === 'loading'}
-            className="w-full px-4 py-2 bg-gradient-to-r from-powder-500 to-powder-600 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-powder-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 disabled:hover:scale-100"
+            className="practice-btn"
           >
             {sheetStatus === 'loading' ? (
               <span className="flex items-center justify-center gap-2">
@@ -226,7 +222,7 @@ export default function SheetSetup() {
               type="button"
               onClick={handleDisconnectSheet}
               disabled={sheetStatus === 'loading'}
-              className="w-full px-4 py-2 bg-white border border-slate-300 text-dark-blue font-bold rounded-lg hover:bg-slate-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="practice-btn-ghost"
             >
               Use Default Sheet
             </button>

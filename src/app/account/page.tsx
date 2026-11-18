@@ -27,12 +27,12 @@ import { getCustomAgentInstructions, MAX_CUSTOM_INSTRUCTIONS_LENGTH } from '@/li
 function statusBadgeClass(accountStatus: string): string {
   switch (accountStatus) {
     case ACCOUNT_STATUS.subscribed:
-      return 'bg-green-100 text-green-700';
+      return 'account-badge-green';
     case ACCOUNT_STATUS.canceled:
     case ACCOUNT_STATUS.expired:
-      return 'bg-red-100 text-red-700';
+      return 'account-badge-red';
     default:
-      return 'bg-powder-500/15 text-powder-600';
+      return 'account-badge-blue';
   }
 }
 
@@ -65,63 +65,55 @@ export default async function AccountPage({
   ]);
   const isSubscribed = user.accountStatus === ACCOUNT_STATUS.subscribed;
 
+  // In the training hall's dark design (src/app/landing.css, .account-page), like My Dojo and the practice tabs
   return (
     <>
     {justVerified && <EmailVerificationNotice email={user.emailAddress} verified />}
-    <section className="py-12 px-4 bg-gradient-to-b from-slate-100 to-white flex justify-center">
-      <div className="w-full max-w-lg space-y-6">
+    <div className="landing account-page">
+      <div className="account-main">
+        <header className="practice-header">
+          <span className="eyebrow">YOUR DOJO PASS</span>
+          <h1>My Account</h1>
+          <p>Your details, subscription, languages and privacy settings.</p>
+        </header>
+
         {mustVerify && (
-          <p role="alert" className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+          <p role="alert" className="practice-error">
             Confirm your email address before subscribing. Open the link we emailed you, or use Resend Link above.
           </p>
         )}
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-powder-600 via-powder-500 to-powder-600 bg-clip-text text-transparent">
-          My Account
-        </h1>
 
-        <div className="bg-slate-50 rounded-xl border border-slate-200 p-6 sm:p-8">
-          <h2 className="text-2xl font-bold text-dark-blue mb-4">My Account Details</h2>
-          <dl className="divide-y divide-slate-200 bg-white rounded-lg border border-slate-200">
-            <div className="flex justify-between gap-4 px-4 py-3">
-              <dt className="text-sm font-medium text-slate-500">Name</dt>
-              <dd translate="no" className="text-dark-blue font-medium text-right">
-                {user.userName}
-              </dd>
+        <section className="practice-panel account-section">
+          <h2>My Account Details</h2>
+          <dl className="account-list">
+            <div className="account-row">
+              <dt>Name</dt>
+              <dd translate="no">{user.userName}</dd>
             </div>
             {/* Admin or User (src/lib/roles.ts), read from the database with the session */}
-            <div className="flex justify-between items-center gap-4 px-4 py-3">
-              <dt className="text-sm font-medium text-slate-500">Account Role</dt>
+            <div className="account-row">
+              <dt>Account Role</dt>
               <dd>
-                <span
-                  className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
-                    isAdmin(user.role) ? 'bg-dark-blue text-white' : 'bg-slate-200 text-slate-700'
-                  }`}
-                >
+                <span className={`account-badge ${isAdmin(user.role) ? 'account-badge-blue' : 'account-badge-neutral'}`}>
                   {user.role}
                 </span>
               </dd>
             </div>
-            <div className="flex justify-between items-center gap-4 px-4 py-3">
-              <dt className="text-sm font-medium text-slate-500">Account Status</dt>
+            <div className="account-row">
+              <dt>Account Status</dt>
               <dd>
-                <span
-                  className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${statusBadgeClass(user.accountStatus)}`}
-                >
-                  {user.accountStatus}
-                </span>
+                <span className={`account-badge ${statusBadgeClass(user.accountStatus)}`}>{user.accountStatus}</span>
               </dd>
             </div>
-            <div className="flex justify-between gap-4 px-4 py-3">
-              <dt className="text-sm font-medium text-slate-500">Signup Date</dt>
-              <dd className="text-dark-blue font-medium text-right">
-                {formatDate(user.signupDate)}
-              </dd>
+            <div className="account-row">
+              <dt>Signup Date</dt>
+              <dd>{formatDate(user.signupDate)}</dd>
             </div>
           </dl>
 
           {/* Every account has a password (there's no Google sign-in) */}
           <ChangePasswordButton />
-        </div>
+        </section>
 
         <MySubscription
           accountStatus={user.accountStatus}
@@ -134,33 +126,33 @@ export default async function AccountPage({
           billing={billing}
         />
 
-        <div className="bg-slate-50 rounded-xl border border-slate-200 p-6 sm:p-8">
-          <h2 className="text-2xl font-bold text-dark-blue mb-2">Language Setup</h2>
+        <section className="practice-panel account-section">
+          <h2>Language Setup</h2>
           {/* Same defaults as the Language page uses when nothing is saved */}
           <LanguageSetupForm
             initialUserLanguage={user.nativeLanguage ?? DEFAULT_USER_LANGUAGE}
             initialLearnLanguage={user.activeLearningLanguage ?? DEFAULT_LEARN_LANGUAGE}
           />
-        </div>
+        </section>
 
-        <div className="bg-slate-50 rounded-xl border border-slate-200 p-6 sm:p-8">
-          <h2 className="text-2xl font-bold text-dark-blue mb-4">Languages</h2>
+        <section className="practice-panel account-section">
+          <h2>Languages</h2>
           {belts.length > 0 ? (
-            <dl className="divide-y divide-slate-200 bg-white rounded-lg border border-slate-200">
+            <dl className="account-list">
               {/* One belt per language the user has started */}
               {belts.map((progress) => {
                 const continueHref = continueTrainingHref(progress);
                 return (
-                  <div key={progress.language} className="flex justify-between items-center gap-4 px-4 py-3">
-                    <dt className="text-sm font-medium text-slate-500">{progress.language}</dt>
-                    <dd className="flex items-center gap-3 flex-wrap justify-end text-dark-blue font-medium text-right">
+                  <div key={progress.language} className="account-row">
+                    <dt>{progress.language}</dt>
+                    <dd className="flex items-center gap-3 flex-wrap justify-end">
                       {beltName(progress.beltColor)}
                       <BeltIcon color={progress.beltColor} />
                       {continueHref && (
                         <Link
                           href={continueHref}
                           title={`Next step: ${describeNextStep(progress)}`}
-                          className="text-sm font-semibold text-powder-600 hover:underline"
+                          className="account-link text-sm"
                         >
                           Continue training
                         </Link>
@@ -173,27 +165,27 @@ export default async function AccountPage({
               })}
             </dl>
           ) : (
-            <p className="bg-white rounded-lg border border-slate-200 px-4 py-3 text-slate-600">
+            <p className="account-empty">
               You haven&apos;t started a language yet.{' '}
-              <Link href="/dojo" className="font-semibold text-powder-600 hover:underline">
+              <Link href="/dojo" className="account-link">
                 Start learning
               </Link>
             </p>
           )}
-        </div>
+        </section>
 
-        <div className="bg-slate-50 rounded-xl border border-slate-200 p-6 sm:p-8">
-          <h2 className="text-2xl font-bold text-dark-blue mb-2">Setup</h2>
+        <section className="practice-panel account-section">
+          <h2>Setup</h2>
           <SheetSetup />
-        </div>
+        </section>
 
-        <div className="bg-slate-50 rounded-xl border border-slate-200 p-6 sm:p-8">
-          <h2 className="text-2xl font-bold text-dark-blue mb-2">Customize Training Experience</h2>
+        <section className="practice-panel account-section">
+          <h2>Customize Training Experience</h2>
           <CustomAgentInstructionsForm
             initialInstructions={customInstructions}
             maxLength={MAX_CUSTOM_INSTRUCTIONS_LENGTH}
           />
-        </div>
+        </section>
 
         <MyAiUsageCard day={aiUsage.day} week={aiUsage.week} />
 
@@ -201,7 +193,7 @@ export default async function AccountPage({
             always an Admin */}
         <PrivacyDataSection isSubscribed={isSubscribed} canDelete={!isAdmin(user.role)} />
       </div>
-    </section>
+    </div>
     </>
   );
 }

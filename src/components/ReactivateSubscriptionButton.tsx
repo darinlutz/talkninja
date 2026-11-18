@@ -27,17 +27,17 @@ export default function ReactivateSubscriptionButton({ endsOn }: { endsOn: strin
   };
 
   return (
-    <div className="mt-3">
+    <div>
       <button
         type="button"
         onClick={reactivate}
         disabled={status === 'working'}
-        className="w-full px-6 py-3 rounded-lg font-semibold text-white bg-gradient-to-r from-powder-500 to-powder-600 hover:from-powder-600 hover:to-powder-500 transition-colors disabled:opacity-60"
+        className="practice-btn"
       >
         {status === 'working' ? 'Reactivating…' : 'Reactivate Subscription'}
       </button>
       {error && (
-        <p role="alert" className="mt-2 text-sm text-red-600">
+        <p role="alert" className="mt-2 practice-error">
           {error}
         </p>
       )}
