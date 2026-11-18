@@ -20,7 +20,7 @@ emails keep going to the owner's Yahoo inbox.
 | Custom training instructions | `"CustomAgentInstructions"` | Instruction | Contract | AI provider (in prompts) | Account lifetime | Cascade |
 | Typed text: test answers, Friend chat, Translator input, words to speak | **Not stored** (browser memory; sent per request) | Instruction | Contract | OpenAI / Anthropic; LangSmith (tracing) | Providers' terms | n/a |
 | Spoken audio | **Not stored** (generated, streamed to browser) | Text-to-speech | Contract | OpenAI | Providers' terms | n/a |
-| Microphone audio, transcripts, speaking scores (Reading & Speaking tab, Speak button) | **Not received or stored** (the browser's Web Speech API does the recognition; transcript and score stay in browser memory; `Permissions-Policy: microphone=(self)`; only `src/components/SpeakPractice.tsx` uses it) | Speaking practice | Consent (the browser's microphone prompt) | The browser's own speech service (e.g. Google in Chrome, Apple in Safari, Microsoft in Edge), not ours | Browser vendor's terms | n/a |
+| Microphone audio, transcripts, speaking scores (Reading & Speaking tab, Speak button) | **Not received or stored** (the browser streams the mic straight to ElevenLabs Scribe over a WebSocket opened with a single-use token from `/api/speech-recognition`, or uses its own Web Speech API for Latin / without a key / during the AI stop; transcript and score stay in browser memory; `Permissions-Policy: microphone=(self)`; only `src/components/SpeakPractice.tsx` and `src/lib/scribeRecognizer.ts` use it). `"AiUsage"` records that an attempt used Scribe, not what was said | Speaking practice | Consent (the browser's microphone prompt) | ElevenLabs (Scribe), or the browser's own speech service (e.g. Google in Chrome, Apple in Safari, Microsoft in Edge) | ElevenLabs's terms (zero retention with `ELEVENLABS_SCRIBE_ZERO_RETENTION=true` on plans that allow it); browser vendor's terms | n/a |
 | UI translation cache | Browser localStorage | Show site in user's language | Contract | OpenAI (UI strings only) | Until cleared | User's browser |
 | Vocabulary sheet ID | `vocab_sheet` cookie | Training from user's sheet | Contract | Google (Sheets API) | 1 year | Disconnect / cookie expiry |
 | Sessions (hashed token, expiry) | `"Sessions"` | Security | Contract | — | 7 days after expiry | Retention job; cascade |
@@ -79,7 +79,7 @@ against TalkNinja's actual account settings and agreements** (column "Confirm").
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Render | Hosting, Postgres, logs, backups | Everything stored | US (region of the shared instance: confirm, RacingCoach says Oregon) | Logs and backups per plan | DPA, SCCs/DPF, encryption at rest, dashboard MFA | Data removed with service; backups expire | https://render.com/privacy | Log & backup retention, region, DPA |
 | OpenAI | AI features, TTS, UI translation | Prompt content, languages, instructions (no name/email) | US | API data not used for training by default; kept up to 30 days for abuse monitoring | API DPA (must be executed), SCCs | No per-request deletion API for abuse logs | https://openai.com/policies/privacy-policy | DPA signed? ZDR not enabled |
-| ElevenLabs | TTS for languages with their own voices (Vietnamese, from 2026-11-16) | The text to be spoken (no name/email) | US (confirm) | **Confirm**: whether API text/audio is kept or used for training, and for how long | DPA, SCCs; consider zero-retention mode | Per ElevenLabs terms | https://elevenlabs.io/privacy-policy | Retention and training settings on the account; DPA |
+| ElevenLabs | TTS for languages with their own voices (Vietnamese, from 2026-11-16); Scribe speech recognition for Speak (from 2026-11-18) | The text to be spoken; Speak audio streamed from the browser (no name/email) | US (confirm) | **Confirm**: whether API text/audio is kept or used for training, and for how long | DPA, SCCs; consider zero-retention mode | Per ElevenLabs terms | https://elevenlabs.io/privacy-policy | Retention and training settings on the account; DPA |
 | Anthropic | AI features if selected on the Admin page | As OpenAI | US | Commercial API data not used for training by default | Commercial DPA, SCCs | Per Anthropic terms | https://www.anthropic.com/legal/privacy | DPA |
 | LangChain (LangSmith) | AI tracing | Full prompts and responses | US | Per LangSmith plan trace retention | DPA, SCCs | Traces can be deleted in LangSmith | https://www.langchain.com/privacy-policy | **Whether `LANGSMITH_TRACING` is on in Render** (couldn't check: Render CLI not logged in); retention setting |
 | Stripe | Payments | Email, user ID, payment details | US | Stripe's legal retention; separate controller for some processing | Stripe DPA (automatic), DPF | Not deleted by TalkNinja | https://stripe.com/privacy | — |
@@ -93,6 +93,13 @@ language an Admin gives voices in Voice Management. Called only from the server 
 `src/lib/speech.ts`), with the text to speak, the voice ID, the model and the language code; no account details.
 `SERVICE_PROVIDERS`, Privacy Policy sections 3 and 7, and its version (2026-11-16) were updated together. Audio is not
 saved: recent audio is kept in server memory only (`src/lib/speech.ts`), and the Privacy Policy says so.
+
+**ElevenLabs Scribe:** added 2026-11-18 for Speaking practice (`scribe_v3_live`). The browser sends the microphone audio
+and the language straight to ElevenLabs's realtime WebSocket; our server only creates a single-use token
+(`src/lib/scribe.ts`, session capped at 45 seconds) and never sees the audio or the transcript. The sentence being
+practiced is not sent. `SERVICE_PROVIDERS`, Privacy Policy sections 1 ("Speaking practice"), 3, 5 and 7, and its version
+(2026-11-18) were updated together. **Confirm** with ElevenLabs whether Scribe audio is kept or used for training on
+our plan; zero retention (`ELEVENLABS_SCRIBE_ZERO_RETENTION=true`) needs a plan that allows it.
 
 **DeepSeek:** removed from `AI_MODELS` (processing in China, no adequacy decision, no safeguard). Stored choices of a
 DeepSeek model are deleted by the schema step and fall back to defaults.

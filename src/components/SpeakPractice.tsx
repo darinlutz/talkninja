@@ -5,22 +5,38 @@ import { Mic, Square } from 'lucide-react';
 import {
   gradeSpokenAttempt,
   gradeSpokenWords,
+  MAX_SPEAK_ATTEMPT_MS,
+  SCRIBE_SAMPLE_RATE,
+  scribeLanguageCode,
   SPEAKING_PASS_SCORE,
   speechLocale,
   type SpokenWordGrade,
   type SpokenWordPart,
 } from '@/lib/speechPractice';
+import {
+  closeMicrophone,
+  microphoneError,
+  openMicrophone,
+  startScribe,
+  type ScribeRecognizer,
+} from '@/lib/scribeRecognizer';
+import { reportRateLimit } from '@/lib/rateLimitClient';
 
-// The Reading & Speaking tab's Speak button: the learner says the sentence shown above, the browser's own speech
-// recognition (Web Speech API) turns it into text as they speak, and the attempt is scored 0-100% against the
-// sentence. The box beside the button shows only the sentence's own words, each one as the learner reaches it, colored
-// by how well it was said (green correct, light red close, red wrong). TalkNinja never receives the audio; the
-// transcript and score stay in this component (Privacy Policy, "Speaking practice"). The microphone is allowed for
-// this site only (Permissions-Policy in next.config.js).
+// The Reading & Speaking tab's Speak button: the learner says the sentence shown above, it's turned into text as they
+// speak, and the attempt is scored 0-100% against the sentence. The box beside the button shows only the sentence's
+// own words, each one as the learner reaches it, colored by how well it was said (green correct, light red close, red
+// wrong). The microphone is allowed for this site only (Permissions-Policy in next.config.js).
 //
-// Recognizers stop on their own (after a pause, after a few silent seconds, or for no reason in some browsers), so an
-// attempt keeps listening across them: a recognizer that ends before the learner is done is started again, and the
-// attempt ends after a pause once they've spoken, when they press the button, or after a time limit.
+// Recognition: ElevenLabs Scribe (scribe_v3_live). /api/speech-recognition gives a WebSocket URL with a single-use
+// token and the microphone is streamed straight to ElevenLabs (src/lib/scribeRecognizer.ts). When it answers
+// { provider: 'browser' } (a language Scribe doesn't know, no ElevenLabs key, the Emergency AI Stop on), or Scribe
+// can't connect, the browser's own speech recognition (Web Speech API) is used. TalkNinja's server never receives the
+// audio; the transcript and score stay in this component (Privacy Policy, "Speaking practice").
+//
+// Browser recognizers stop on their own (after a pause, after a few silent seconds, or for no reason in some
+// browsers), so an attempt keeps listening across them: a recognizer that ends before the learner is done is started
+// again. With either, the attempt ends after a pause once they've spoken, when they press the button, or after a time
+// limit.
 
 // The parts of the Web Speech API used here (not in every TypeScript DOM library)
 interface RecognitionAlternative {
@@ -74,7 +90,7 @@ const RECOGNITION_ERRORS: Record<string, string> = {
 const START_TIMEOUT_MS = 10_000;
 const PAUSE_MS = 1_800;
 const PAUSE_AFTER_WHOLE_SENTENCE_MS = 700;
-const MAX_ATTEMPT_MS = 30_000;
+const MAX_ATTEMPT_MS = MAX_SPEAK_ATTEMPT_MS;
 // Recognizers that end straight away (before hearing anything) are restarted at most this many times
 const MAX_QUICK_RESTARTS = 4;
 
@@ -120,7 +136,16 @@ const squash = (text: string) => text.toLowerCase().replace(/[\s\p{P}]/gu, '');
 interface Attempt {
   target: string;
   locale: string;
+  language: string;
+  // Which recognizer this attempt uses (scribe until it turns out it can't)
+  engine: 'scribe' | 'browser';
   recognition: Recognition | null;
+  // Scribe: the microphone, the audio context it's resampled in, and the session (once connected)
+  microphone: Promise<MediaStream> | null;
+  stream: MediaStream | null;
+  context: AudioContext | null;
+  scribe: ScribeRecognizer | null;
+  ready: boolean;
   // Final results from recognizers that have ended, and from the current one: each with the recognizer's alternatives
   committed: string[][];
   current: string[][];
@@ -164,13 +189,16 @@ interface SpeakPracticeProps {
 }
 
 export default function SpeakPractice({ expected, language }: SpeakPracticeProps) {
-  // starting: the microphone is opening (don't speak yet); listening: speak now
-  const [phase, setPhase] = useState<'idle' | 'starting' | 'listening'>('idle');
+  // starting: the microphone is opening (don't speak yet); listening: speak now; scoring: waiting for Scribe's
+  // final transcript
+  const [phase, setPhase] = useState<'idle' | 'starting' | 'listening' | 'scoring'>('idle');
   // What the recognizer has heard so far (shown live while listening)
   const [liveText, setLiveText] = useState('');
   // The graded words and score of the last attempt, and the sentence it was for (a new sentence clears it)
   const [result, setResult] = useState<{ for: string; parts: SpokenWordPart[]; score: number } | null>(null);
   const [message, setMessage] = useState('');
+  // 0-1, how loud the microphone is while Scribe listens (the button's icon grows with it)
+  const [level, setLevel] = useState(0);
   const attemptRef = useRef<Attempt | null>(null);
 
   // A new sentence (or language) starts fresh
@@ -191,6 +219,8 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
       if (attempt) {
         clearTimers(attempt);
         attempt.recognition?.abort();
+        attempt.scribe?.abort();
+        releaseAudio(attempt);
       }
     };
   }, [expected, language]);
@@ -201,10 +231,55 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
     window.clearTimeout(attempt.maxTimer);
   }
 
+  // Turns the microphone off (the browser's recording indicator goes away) and closes the audio context
+  function releaseAudio(attempt: Attempt) {
+    closeMicrophone(attempt.stream);
+    attempt.stream = null;
+    // Still opening: close it as soon as it opens
+    attempt.microphone?.then(closeMicrophone, () => undefined);
+    attempt.microphone = null;
+    const context = attempt.context;
+    attempt.context = null;
+    if (context && context.state !== 'closed') void context.close().catch(() => undefined);
+  }
+
+  // Nothing heard at all: give up and say so. And never listen forever.
+  function armTimers(attempt: Attempt) {
+    attempt.startedAt = Date.now();
+    attempt.startTimer = window.setTimeout(() => {
+      if (!attempt.heardSpeech) stopAttempt(attempt);
+    }, START_TIMEOUT_MS);
+    attempt.maxTimer = window.setTimeout(() => stopAttempt(attempt), MAX_ATTEMPT_MS);
+  }
+
+  // Something new was heard: show it, remember it, and end the attempt after a pause (a short one once the whole
+  // sentence has been said and nothing is still being worked out, a longer one otherwise)
+  function heard(attempt: Attempt, text: string, settled: boolean) {
+    if (!text) return;
+    attempt.heardSpeech = true;
+    if (!attempt.snapshots.includes(text)) attempt.snapshots = [...attempt.snapshots.slice(-19), text];
+    setLiveText(text);
+    window.clearTimeout(attempt.startTimer);
+    window.clearTimeout(attempt.pauseTimer);
+    const done = settled && reachedWholeSentence(attempt, text);
+    attempt.pauseTimer = window.setTimeout(
+      () => stopAttempt(attempt),
+      done ? PAUSE_AFTER_WHOLE_SENTENCE_MS : PAUSE_MS
+    );
+  }
+
   function stopAttempt(attempt: Attempt) {
     if (attempt.stopping) return;
     attempt.stopping = true;
     clearTimers(attempt);
+    if (attempt.engine === 'scribe') {
+      // Commit and wait for the final transcript (the whole attempt, with its full context), then score
+      setLevel(0);
+      if (attempt.scribe) setPhase('scoring');
+      if (attempt.scribe) void attempt.scribe.finish().then(() => finishAttempt(attempt));
+      else finishAttempt(attempt);
+      return;
+    }
     if (attempt.recognition) {
       try {
         attempt.recognition.stop();
@@ -220,7 +295,10 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
     if (attemptRef.current !== attempt) return;
     attemptRef.current = null;
     clearTimers(attempt);
+    attempt.scribe?.abort();
+    releaseAudio(attempt);
     setPhase('idle');
+    setLevel(0);
     if (attempt.failed) return;
 
     const heard = transcripts(attempt);
@@ -282,18 +360,7 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
       const text = joined([...attempt.committed, ...finals], attempt.interim);
       if (!text) return;
       heardHere = true;
-      attempt.heardSpeech = true;
-      if (!attempt.snapshots.includes(text)) attempt.snapshots = [...attempt.snapshots.slice(-19), text];
-      setLiveText(text);
-
-      // End after a pause: a short one once the whole sentence has been said, a longer one otherwise
-      window.clearTimeout(attempt.startTimer);
-      window.clearTimeout(attempt.pauseTimer);
-      const done = !attempt.interim && reachedWholeSentence(attempt, text);
-      attempt.pauseTimer = window.setTimeout(
-        () => stopAttempt(attempt),
-        done ? PAUSE_AFTER_WHOLE_SENTENCE_MS : PAUSE_MS
-      );
+      heard(attempt, text, !attempt.interim);
     };
 
     recognition.onerror = (event) => {
@@ -335,6 +402,123 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
     recognition.start();
   }
 
+  // The browser's own recognition, for this attempt (when Scribe can't be used)
+  function startBrowserAttempt(attempt: Attempt): boolean {
+    attempt.engine = 'browser';
+    releaseAudio(attempt);
+    const Constructor = recognitionConstructor();
+    if (!Constructor) {
+      failAttempt(attempt, 'Your browser doesn\'t support speech recognition. Try Chrome, Edge or Safari.');
+      return false;
+    }
+    try {
+      startRecognizer(attempt, Constructor);
+    } catch {
+      failAttempt(attempt, 'The microphone couldn\'t be started. Please try again.');
+      return false;
+    }
+    armTimers(attempt);
+    return true;
+  }
+
+  function failAttempt(attempt: Attempt, text: string) {
+    if (attemptRef.current !== attempt) return;
+    attempt.failed = true;
+    setMessage(text);
+    finishAttempt(attempt);
+  }
+
+  // ElevenLabs Scribe: the microphone (already opening) streams to the session /api/speech-recognition opens
+  async function startScribeAttempt(attempt: Attempt, microphone: Promise<MediaStream>) {
+    const current = () => attemptRef.current === attempt && !attempt.stopping;
+    let response: Response;
+    try {
+      response = await fetch('/api/speech-recognition', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ language: attempt.language }),
+      });
+    } catch {
+      if (current()) startBrowserAttempt(attempt);
+      return;
+    }
+    if (!current()) return;
+    if (await reportRateLimit(response)) {
+      failAttempt(attempt, 'You\'ve reached your AI limit for now, so Speak can\'t listen. Please try again later.');
+      return;
+    }
+    const body = (await response.json().catch(() => null)) as { provider?: string; url?: string; error?: string } | null;
+    if (!current()) return;
+    if (response.status === 401 || response.status === 403) {
+      failAttempt(attempt, body?.error ?? 'Please log in to practice speaking.');
+      return;
+    }
+    if (!response.ok || body?.provider !== 'elevenlabs' || !body.url) {
+      // Scribe isn't available for this language (or right now): use the browser's recognition
+      startBrowserAttempt(attempt);
+      return;
+    }
+
+    let stream: MediaStream;
+    try {
+      stream = await microphone;
+    } catch (error) {
+      failAttempt(attempt, microphoneError(error));
+      return;
+    }
+    attempt.stream = stream;
+    attempt.microphone = null;
+    if (!current() || !attempt.context) {
+      releaseAudio(attempt);
+      return;
+    }
+
+    try {
+      attempt.scribe = await startScribe({
+        url: body.url,
+        sampleRate: SCRIBE_SAMPLE_RATE,
+        context: attempt.context,
+        stream,
+        handlers: {
+          onReady: () => {
+            if (attemptRef.current !== attempt) return;
+            attempt.ready = true;
+            setPhase('listening');
+            armTimers(attempt);
+          },
+          onPartial: (text) => {
+            if (attemptRef.current !== attempt) return;
+            attempt.interim = text;
+            heard(attempt, joined(attempt.committed, text), false);
+          },
+          onCommitted: (text) => {
+            if (attemptRef.current !== attempt) return;
+            attempt.committed = [...attempt.committed, [text]];
+            attempt.interim = '';
+            if (!attempt.stopping) heard(attempt, joined(attempt.committed), true);
+          },
+          onLevel: (value) => {
+            if (attemptRef.current === attempt && !attempt.stopping) setLevel(value);
+          },
+          onError: (text) => {
+            // While finishing, score what was heard so far (finish() resolves)
+            if (attemptRef.current !== attempt || attempt.stopping) return;
+            // Couldn't connect at all: listen with the browser instead; once listening, say what went wrong
+            if (!attempt.ready && !attempt.stopping) {
+              attempt.scribe = null;
+              startBrowserAttempt(attempt);
+              return;
+            }
+            failAttempt(attempt, text);
+          },
+        },
+      });
+      if (!current()) attempt.scribe.abort();
+    } catch {
+      if (current()) startBrowserAttempt(attempt);
+    }
+  }
+
   const handleSpeak = () => {
     const running = attemptRef.current;
     if (running) {
@@ -344,16 +528,18 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
     }
     if (!expected.trim()) return;
 
-    const Constructor = recognitionConstructor();
-    if (!Constructor) {
-      setMessage('Your browser doesn\'t support speech recognition. Try Chrome, Edge or Safari.');
-      return;
-    }
-
+    const useScribe = scribeLanguageCode(language) !== null;
     const attempt: Attempt = {
       target: expected,
       locale: speechLocale(language),
+      language,
+      engine: useScribe ? 'scribe' : 'browser',
       recognition: null,
+      microphone: null,
+      stream: null,
+      context: null,
+      scribe: null,
+      ready: false,
       committed: [],
       current: [],
       interim: '',
@@ -368,25 +554,39 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
     setLiveText('');
     setResult(null);
     setMessage('');
+    setLevel(0);
     setPhase('starting');
-    try {
-      startRecognizer(attempt, Constructor);
-    } catch {
-      attemptRef.current = null;
-      setPhase('idle');
-      setMessage('The microphone couldn\'t be started. Please try again.');
+
+    if (!useScribe) {
+      startBrowserAttempt(attempt);
       return;
     }
-    // Nothing heard at all: give up and say so. And never listen forever.
-    attempt.startTimer = window.setTimeout(() => {
-      if (!attempt.heardSpeech) stopAttempt(attempt);
-    }, START_TIMEOUT_MS);
-    attempt.maxTimer = window.setTimeout(() => stopAttempt(attempt), MAX_ATTEMPT_MS);
+    // Opened during the click, so the browser lets the audio context run and asks for the microphone straight away,
+    // while the session is being opened
+    const AudioContextClass =
+      typeof window === 'undefined'
+        ? undefined
+        : window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) {
+      startBrowserAttempt(attempt);
+      return;
+    }
+    try {
+      attempt.context = new AudioContextClass();
+      void attempt.context.resume().catch(() => undefined);
+    } catch {
+      startBrowserAttempt(attempt);
+      return;
+    }
+    const microphone = openMicrophone();
+    microphone.catch(() => undefined);
+    attempt.microphone = microphone;
+    void startScribeAttempt(attempt, microphone);
   };
 
   const shownResult = result && result.for === expected ? result : null;
   const passed = shownResult ? shownResult.score >= SPEAKING_PASS_SCORE : false;
-  const listening = phase !== 'idle';
+  const listening = phase === 'starting' || phase === 'listening';
   const spokenWords: SpokenWordPart[] = shownResult
     ? shownResult.parts
     : liveText
@@ -399,7 +599,7 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
         <button
           type="button"
           onClick={handleSpeak}
-          disabled={!expected.trim()}
+          disabled={!expected.trim() || phase === 'scoring'}
           aria-pressed={listening}
           title={listening ? 'Stop and score' : 'Say the phrase above'}
           className="practice-btn flex-shrink-0 sm:self-start"
@@ -411,8 +611,18 @@ export default function SpeakPractice({ expected, language }: SpeakPracticeProps
             </>
           ) : phase === 'listening' ? (
             <>
-              <Square className="w-4 h-4" aria-hidden="true" />
+              {/* Grows with the learner's voice (Scribe), so they can see they're being heard */}
+              <Square
+                className="w-4 h-4 transition-transform duration-100"
+                style={{ transform: `scale(${1 + Math.min(level, 1) * 0.6})` }}
+                aria-hidden="true"
+              />
               Listening…
+            </>
+          ) : phase === 'scoring' ? (
+            <>
+              <Mic className="w-5 h-5 animate-pulse" aria-hidden="true" />
+              Checking…
             </>
           ) : (
             <>

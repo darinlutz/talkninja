@@ -46,8 +46,8 @@ const SITE = 'https://talkninja.app';
 const EFFECTIVE = 'November 3, 2026';
 // The Terms were updated on their own (one plan, the Monthly Subscription)
 const TERMS_EFFECTIVE = 'November 16, 2026';
-// The Privacy Policy was updated on its own (ElevenLabs text to speech)
-const PRIVACY_EFFECTIVE = 'November 17, 2026';
+// The Privacy Policy was updated on its own (ElevenLabs speech recognition for Speaking practice)
+const PRIVACY_EFFECTIVE = 'November 18, 2026';
 
 const contactBlock: LegalBlock = {
   contact: [
@@ -257,8 +257,8 @@ export const SERVICE_PROVIDERS: { name: string; service: string; data: string; l
   },
   {
     name: 'ElevenLabs',
-    service: 'Text-to-speech in some languages (currently Vietnamese)',
-    data: 'The text to be spoken (the words, sentences and AI Friend replies being practiced); no name or email address',
+    service: 'Text-to-speech in some languages (currently Vietnamese), and speech recognition for Speaking practice',
+    data: 'The text to be spoken (the words, sentences and AI Friend replies being practiced); when you press Speak, your voice from the microphone, sent from your browser, and the language being practiced; no name or email address',
     location: 'United States',
     policy: 'https://elevenlabs.io/privacy-policy',
   },
@@ -321,7 +321,7 @@ const retentionRows: string[][] = [
   ['Cookie choice records', `${days(RETENTION_RULES.consentRecords.days)}`],
   ['Record that an account was deleted (account ID and dates only)', `${days(RETENTION_RULES.deletionLedger.days)}`],
   ['What you type into AI features (practice answers, Friend conversations, Translator text)', 'Not stored by us. Kept by our AI providers as described in Section 5'],
-  ['Speaking practice (your voice, the text of what you said, your score)', 'Not received or stored by us; handled in your browser and by its speech recognition service'],
+  ['Speaking practice (your voice, the text of what you said, your score)', 'Not received or stored by us; your voice goes from your browser to ElevenLabs (or your browser\'s speech recognition service) to be turned into text, and the text and score stay in your browser'],
   ['Spoken audio', 'Not saved by us; generated on request and sent to your browser. Recent audio is kept briefly in server memory to replay the same words, and is gone when the server restarts'],
   ['Payment and billing records', 'Kept by Stripe under its own legal obligations (for example, tax and accounting)'],
   ['Server logs', 'Kept by Render for its log retention period'],
@@ -370,8 +370,9 @@ export const privacyPolicy: LegalDocumentContent = {
         { subheading: 'Speaking practice' },
         {
           list: [
-            'When you press Speak on the Reading & Speaking tab, your browser asks for permission to use your microphone and turns what you say into text with its own speech recognition service (for example, Google\'s in Chrome, Apple\'s in Safari or Microsoft\'s in Edge), under that company\'s terms. Your browser may send the audio to that company to do this; it is not sent to us.',
-            'The text it produces and your score are shown only in your browser. We do not receive or store your audio, the text of what you said, or your speaking scores.',
+            'When you press Speak on the Reading & Speaking tab, your browser asks for permission to use your microphone. While Speak is listening (at most about 30 seconds per attempt), your browser sends what you say directly to ElevenLabs, our speech recognition provider, which turns it into text and sends the text back to your browser. Our servers only ask ElevenLabs for a one-time access code for each attempt; the audio does not pass through them. ElevenLabs handles the audio under its own terms (see Section 5).',
+            'For languages ElevenLabs does not support (currently Latin), or when ElevenLabs is unavailable, your browser uses its own speech recognition service instead (for example, Google\'s in Chrome, Apple\'s in Safari or Microsoft\'s in Edge), under that company\'s terms; your browser may send the audio to that company to do this.',
+            'The text and your score are shown only in your browser. We do not receive or store your audio, the text of what you said, or your speaking scores. We record that a Speak attempt used ElevenLabs (the time and your account, like other AI usage), not what was said.',
             'You can refuse or withdraw microphone permission at any time in your browser\'s settings; the rest of the Services work without it.',
           ],
         },
@@ -421,6 +422,7 @@ export const privacyPolicy: LegalDocumentContent = {
           list: [
             'Our default AI provider is OpenAI. We may choose Anthropic\'s models for some features. We review providers before use and do not route your data to providers outside those listed in Section 5.',
             'Text-to-speech: the text to be spoken is sent to OpenAI or, for languages with their own voices (currently Vietnamese), to ElevenLabs, which returns audio that plays in your browser. We do not save the audio; recent audio is kept briefly in our server\'s memory so the same words can play again, and is gone when the server restarts.',
+            'Speech recognition: when you press Speak, your browser sends your voice directly to ElevenLabs, which returns the text of what you said (see "Speaking practice" in Section 1). It does not pass through our servers and we do not save it.',
             'Interface translation: if your "I speak" language is not English, the site\'s interface text (not your personal information) is sent to OpenAI for translation and cached in your browser.',
             'Monitoring: requests and responses may be recorded in LangSmith, a tool from LangChain, so we can investigate errors and quality problems.',
             'Training of AI models: OpenAI\'s and Anthropic\'s terms for their business APIs state that they do not use data sent through their APIs to train their models unless the customer opts in. We have not opted in. These providers may keep requests for a limited period (for example, to monitor for abuse) under their own terms. We have not arranged zero data retention with them.',

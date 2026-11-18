@@ -41,7 +41,7 @@ function importsOf(file) {
 }
 
 // Modules that make paid calls themselves
-const PAID = new Set(['src/lib/aiModels.ts', 'src/lib/imageSearch.ts', 'src/lib/speech.ts', 'src/lib/elevenLabs.ts'].map((f) => path.join(ROOT, f)));
+const PAID = new Set(['src/lib/aiModels.ts', 'src/lib/imageSearch.ts', 'src/lib/speech.ts', 'src/lib/elevenLabs.ts', 'src/lib/scribe.ts'].map((f) => path.join(ROOT, f)));
 const callsPaidApiDirectly = (file) => /api\.openai\.com|api\.tavily\.com|api\.anthropic\.com|api\.elevenlabs\.io/.test(TEXT.get(file));
 
 function reachesPaid(file, seen = new Set()) {
@@ -68,7 +68,7 @@ const AI_ROUTES = ROUTES.filter((f) => !rel(f).startsWith('src/app/api/admin/') 
 describe('AI routes (source guards)', () => {
   test('the AI routes are found', () => {
     // A sanity check on the import walk: these must be among them
-    for (const route of ['translate', 'friend', 'speak', 'language/image', 'ui-translate']) {
+    for (const route of ['translate', 'friend', 'speak', 'speech-recognition', 'language/image', 'ui-translate']) {
       assert.ok(AI_ROUTES.some((f) => rel(f) === `src/app/api/${route}/route.ts`), `${route} should be an AI route`);
     }
   });
@@ -117,7 +117,7 @@ describe('AI routes (source guards)', () => {
         assert.doesNotMatch(text, /new Chat(OpenAI|Anthropic)\(/, `${rel(file)} must use chatModel/structuredModel`);
       }
       if (callsPaidApiDirectly(file)) {
-        assert.ok(['src/lib/speech.ts', 'src/lib/elevenLabs.ts', 'src/lib/imageSearch.ts'].includes(rel(file)), `${rel(file)} calls a paid API`);
+        assert.ok(['src/lib/speech.ts', 'src/lib/elevenLabs.ts', 'src/lib/scribe.ts', 'src/lib/imageSearch.ts'].includes(rel(file)), `${rel(file)} calls a paid API`);
       }
     }
   });
@@ -138,6 +138,19 @@ describe('emergency stop and gate (source guards)', () => {
     const eleven = read('src/lib/elevenLabs.ts');
     assert.ok(eleven.indexOf('await assertAiServicesOn()') >= 0, 'ElevenLabs checks the emergency stop');
     assert.ok(eleven.indexOf('await assertAiServicesOn()') < eleven.indexOf('await fetch('), 'ElevenLabs checks before calling');
+    const scribe = read('src/lib/scribe.ts');
+    assert.ok(scribe.indexOf('await assertAiServicesOn()') >= 0, 'Scribe checks the emergency stop');
+    assert.ok(scribe.indexOf('await assertAiServicesOn()') < scribe.indexOf('await fetch('), 'Scribe checks before asking for a token');
+  });
+
+  test('a Scribe token buys one short session, and the key stays on the server', () => {
+    const scribe = read('src/lib/scribe.ts');
+    assert.match(scribe, /max_session_duration_seconds=\$\{SCRIBE_SESSION_SECONDS\}/, 'the token caps its session');
+    assert.match(scribe, /single-use-token\/realtime_scribe/, 'a single-use token, not the API key, goes to the browser');
+    assert.doesNotMatch(scribe, /params\.set\('xi-api-key'|xi-api-key[^\n]*URLSearchParams/);
+    for (const file of ['src/lib/scribeRecognizer.ts', 'src/components/SpeakPractice.tsx']) {
+      assert.doesNotMatch(read(file), /ELEVENLABS|xi-api-key|api\.elevenlabs\.io/, `${file} gets the socket URL from the server`);
+    }
   });
 
   test('aiRateLimit refuses visitors, honours the stop and the safety ceilings, and fails closed', () => {

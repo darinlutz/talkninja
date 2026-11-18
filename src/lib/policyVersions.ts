@@ -12,7 +12,7 @@
 // cookie choice, as evidence of which notice the person was shown.
 export const POLICY_VERSIONS = {
   terms: '2026-11-16',
-  privacy: '2026-11-17',
+  privacy: '2026-11-18',
   cookies: '2026-11-03',
 } as const;
 

@@ -28,7 +28,7 @@ export default function SupportedLanguagesDialog({
         <ul className="lang-grid">
           {LANGUAGES.map((language) => (
             <li key={language} className="lang-tile">
-              {/* dir="auto" lays out Arabic, Persian and Urdu right to left */}
+              {/* dir="auto" lays out Arabic and Persian right to left */}
               <span dir="auto" translate="no" className="lang-tile-native" title={NATIVE_NAMES[language]}>
                 {NATIVE_NAMES[language]}
               </span>

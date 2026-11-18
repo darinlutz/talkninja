@@ -1,9 +1,12 @@
-// Speaking practice on the Reading & Speaking tab (src/components/SpeakPractice.tsx): the locale the browser's
-// speech recognition listens in, and how a spoken attempt is scored against the sentence shown. No imports, so the
-// client component and the Node tests (scripts/privacy.test.mjs) share it.
+// Speaking practice on the Reading & Speaking tab (src/components/SpeakPractice.tsx): the language each recognizer
+// listens in, and how a spoken attempt is scored against the sentence shown. No imports, so the client component,
+// the server (src/lib/scribe.ts) and the Node tests (scripts/privacy.test.mjs) share it.
 //
-// The browser does the recognition (the Web Speech API): TalkNinja never receives the audio, and the transcript and
-// score stay in the browser. The Privacy Policy says so (src/lib/legal.ts, "Speaking practice").
+// Recognition is done by ElevenLabs Scribe (scribe_v3_live): the browser streams the microphone straight to
+// ElevenLabs over a WebSocket opened with a single-use token from /api/speech-recognition. For languages Scribe
+// doesn't know (Latin), without an ElevenLabs key, or while the Emergency AI Stop is on, the browser's own speech
+// recognition (the Web Speech API) is used instead. Either way TalkNinja's server never receives the audio, and the
+// transcript and score stay in the browser. The Privacy Policy says so (src/lib/legal.ts, "Speaking practice").
 //
 // Grading gives the learner the benefit of the doubt. A recognizer only reports the words it guessed, so a word said
 // well can come back spelled a little differently (a missing accent or tone mark, "c" for "k", a doubled letter, a
@@ -18,7 +21,6 @@ export const SPEAKING_PASS_SCORE = 80;
 // learner.
 export const SPEECH_RECOGNITION_LOCALES: Record<string, string> = {
   Arabic: 'ar-SA',
-  Bengali: 'bn-IN',
   'Chinese (Mandarin)': 'zh-CN',
   Dutch: 'nl-NL',
   English: 'en-US',
@@ -26,7 +28,6 @@ export const SPEECH_RECOGNITION_LOCALES: Record<string, string> = {
   French: 'fr-FR',
   German: 'de-DE',
   Greek: 'el-GR',
-  Gujarati: 'gu-IN',
   Hindi: 'hi-IN',
   Indonesian: 'id-ID',
   Irish: 'ga-IE',
@@ -43,13 +44,53 @@ export const SPEECH_RECOGNITION_LOCALES: Record<string, string> = {
   Swahili: 'sw-KE',
   Thai: 'th-TH',
   Turkish: 'tr-TR',
-  Urdu: 'ur-PK',
   Vietnamese: 'vi-VN',
 };
 
 export function speechLocale(language: string): string {
   return SPEECH_RECOGNITION_LOCALES[language] ?? 'en-US';
 }
+
+// The language_code ElevenLabs Scribe listens in (ISO 639-3, as its language list gives them). A language missing
+// here (Latin) isn't supported by Scribe and uses the browser's recognition.
+export const SCRIBE_LANGUAGE_CODES: Record<string, string> = {
+  Arabic: 'ara',
+  'Chinese (Mandarin)': 'zho',
+  Dutch: 'nld',
+  English: 'eng',
+  'Filipino (Tagalog)': 'fil',
+  French: 'fra',
+  German: 'deu',
+  Greek: 'ell',
+  Hindi: 'hin',
+  Indonesian: 'ind',
+  Irish: 'gle',
+  Italian: 'ita',
+  Japanese: 'jpn',
+  Korean: 'kor',
+  Persian: 'fas',
+  Polish: 'pol',
+  Portuguese: 'por',
+  Punjabi: 'pan',
+  Russian: 'rus',
+  Spanish: 'spa',
+  Swahili: 'swa',
+  Thai: 'tha',
+  Turkish: 'tur',
+  Vietnamese: 'vie',
+};
+
+export function scribeLanguageCode(language: string): string | null {
+  return SCRIBE_LANGUAGE_CODES[language] ?? null;
+}
+
+// Scribe hears 16 kHz mono 16-bit PCM (audio_format pcm_16000); the browser resamples the microphone to it
+export const SCRIBE_SAMPLE_RATE = 16_000;
+
+// The longest one Speak attempt listens, and the longest an ElevenLabs session opened for it may last (its token's
+// max_session_duration_seconds), so a token can't be used to stream for long
+export const MAX_SPEAK_ATTEMPT_MS = 30_000;
+export const SCRIBE_SESSION_SECONDS = 45;
 
 // Lower case, Unicode-normalized, without punctuation or symbols, single spaces: "Xin chào!" and "xin chào" match.
 // Also "ß" as "ss" and katakana as hiragana, which recognizers use interchangeably.

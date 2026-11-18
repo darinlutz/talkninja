@@ -15,6 +15,7 @@ export const RATE_LIMITED_FEATURES = [
   'readingTest',
   'writingTest',
   'speech',
+  'speechRecognition',
   'imageSearch',
 ] as const;
 
@@ -34,6 +35,7 @@ export const RATE_LIMITED_FEATURE_LABELS: Record<RateLimitedFeature, string> = {
   readingTest: 'Reading Test (/api/language/reading-test)',
   writingTest: 'Training & Writing Test (/api/language/writing-test)',
   speech: 'Text to speech (/api/speak)',
+  speechRecognition: 'Speaking practice (/api/speech-recognition)',
   imageSearch: 'Training picture search (/api/language/image)',
 };
 
@@ -169,6 +171,7 @@ export const DEFAULT_RATE_LIMITS: RateLimitSettings = {
     readingTest: 1,
     writingTest: 1,
     speech: 1,
+    speechRecognition: 1,
     imageSearch: 1,
   },
 };

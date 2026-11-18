@@ -2,7 +2,6 @@
 // both client components and API routes can import it.
 export const LANGUAGES = [
   'Arabic',
-  'Bengali',
   'Chinese (Mandarin)',
   'Dutch',
   'English',
@@ -10,7 +9,6 @@ export const LANGUAGES = [
   'French',
   'German',
   'Greek',
-  'Gujarati',
   'Hindi',
   'Indonesian',
   'Irish',
@@ -27,7 +25,6 @@ export const LANGUAGES = [
   'Swahili',
   'Thai',
   'Turkish',
-  'Urdu',
   'Vietnamese',
 ] as const;
 
@@ -36,7 +33,6 @@ export type Language = (typeof LANGUAGES)[number];
 // BCP 47 tags for lang attributes (fonts, spellcheck, screen readers)
 export const LANGUAGE_CODES: Record<Language, string> = {
   Arabic: 'ar',
-  Bengali: 'bn',
   'Chinese (Mandarin)': 'zh',
   Dutch: 'nl',
   English: 'en',
@@ -44,7 +40,6 @@ export const LANGUAGE_CODES: Record<Language, string> = {
   French: 'fr',
   German: 'de',
   Greek: 'el',
-  Gujarati: 'gu',
   Hindi: 'hi',
   Indonesian: 'id',
   Irish: 'ga',
@@ -61,7 +56,6 @@ export const LANGUAGE_CODES: Record<Language, string> = {
   Swahili: 'sw',
   Thai: 'th',
   Turkish: 'tr',
-  Urdu: 'ur',
   Vietnamese: 'vi',
 };
 
@@ -69,7 +63,6 @@ export const LANGUAGE_CODES: Record<Language, string> = {
 // Languages" list
 export const NATIVE_NAMES: Record<Language, string> = {
   Arabic: 'العربية',
-  Bengali: 'বাংলা',
   'Chinese (Mandarin)': '普通话',
   Dutch: 'Nederlands',
   English: 'English',
@@ -77,7 +70,6 @@ export const NATIVE_NAMES: Record<Language, string> = {
   French: 'Français',
   German: 'Deutsch',
   Greek: 'Ελληνικά',
-  Gujarati: 'ગુજરાતી',
   Hindi: 'हिन्दी',
   Indonesian: 'Bahasa Indonesia',
   Irish: 'Gaeilge',
@@ -94,7 +86,6 @@ export const NATIVE_NAMES: Record<Language, string> = {
   Swahili: 'Kiswahili',
   Thai: 'ไทย',
   Turkish: 'Türkçe',
-  Urdu: 'اردو',
   Vietnamese: 'Tiếng Việt',
 };
 

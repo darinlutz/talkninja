@@ -20,7 +20,8 @@
       "Bash(SCALE_BLE_ADDRESS=9BF8B32D-6A1B-C276-0872-FE19536AEB0F .venv/bin/python src/app/scaleVeSync.py)",
       "Bash(ls -d /Users/darinlutz/Desktop/*/ /Users/darinlutz/Desktop/Clarivex/*/ /Users/darinlutz/*/ 2>/dev/null | grep -i -E \"rac|coach\"; find /Users/darinlutz -maxdepth 4 -iname \"*racingcoach*\" -not -path \"*/Library/*\" -not -path \"*/node_modules/*\" 2>/dev/null | head)",
       "Read(//Users/darinlutz/Desktop/**)",
-      "Read(//Users/darinlutz/**)"
+      "Read(//Users/darinlutz/**)",
+      "WebFetch(domain:elevenlabs.io)"
     ]
   }
 }

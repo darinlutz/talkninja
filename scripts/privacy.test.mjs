@@ -30,7 +30,7 @@ import { MINIMUM_AGE, POLICY_VERSIONS, acceptsCurrentTerms } from '../src/lib/po
 import { RETENTION_KEYS, RETENTION_RULES, cutoff, retentionDays } from '../src/lib/retentionRules.ts';
 import { AI_MODELS, AI_MODEL_PROVIDERS } from '../src/lib/aiModelList.ts';
 import { EXPORTED_TABLES, NOT_EXPORTED } from '../src/lib/personalDataExport.ts';
-import { SPEAKING_PASS_SCORE, SPEECH_RECOGNITION_LOCALES, gradeSpokenAttempt, gradeSpokenWords, scoreSpokenAttempt } from '../src/lib/speechPractice.ts';
+import { SCRIBE_LANGUAGE_CODES, SPEAKING_PASS_SCORE, SPEECH_RECOGNITION_LOCALES, gradeSpokenAttempt, gradeSpokenWords, scoreSpokenAttempt } from '../src/lib/speechPractice.ts';
 import { LANGUAGES } from '../src/lib/languages.ts';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -193,17 +193,25 @@ describe('legal documents', () => {
     assert.ok(docText(privacyPolicy).includes('do not record your voice'));
     assert.ok(!AI_MODELS.some((m) => m.startsWith('deepseek')));
     assert.ok(!AI_MODEL_PROVIDERS.includes('DeepSeek'));
-    // Speak practice (Reading & Speaking tab) uses the browser's own speech recognition; we never receive the audio
-    const MIC_FILES = ['src/components/SpeakPractice.tsx'];
+    // Speak practice (Reading & Speaking tab) streams the microphone from the browser straight to ElevenLabs Scribe,
+    // or uses the browser's own speech recognition; our server never receives the audio
+    const MIC_FILES = ['src/components/SpeakPractice.tsx', 'src/lib/scribeRecognizer.ts'];
     assert.ok(docText(privacyPolicy).includes('Speaking practice'));
     assert.ok(docText(privacyPolicy).includes('We do not receive or store your audio'));
+    assert.ok(docText(privacyPolicy).includes('sends what you say directly to ElevenLabs'));
+    assert.ok(SERVICE_PROVIDERS.find((p) => p.name === 'ElevenLabs').data.includes('your voice'));
     assert.ok(fs.readFileSync(path.join(ROOT, 'next.config.js'), 'utf8').includes('microphone=(self)'));
     for (const { file, text } of FILES) {
       if (MIC_FILES.includes(file)) {
-        // Recognition in the browser only: never recorded or uploaded
-        assert.ok(!/getUserMedia|MediaRecorder|fetch\(/.test(text), `${file} must not record or upload audio`);
+        // Never recorded, and never uploaded to us: the only request is for the session URL, and the audio goes only
+        // over the WebSocket to the URL that request returned
+        assert.ok(!/MediaRecorder|localStorage|indexedDB/.test(text), `${file} must not record or keep audio`);
+        const fetches = [...text.matchAll(/fetch\(\s*([^,)]+)/g)].map((m) => m[1].trim());
+        assert.ok(fetches.every((target) => target === "'/api/speech-recognition'"), `${file} fetches only the session URL`);
+        assert.ok(!/new WebSocket\((?!url\))/.test(text), `${file} opens a WebSocket only to the URL the server gave`);
         continue;
       }
+      assert.ok(!/new WebSocket\(/.test(text), `${file} opens a WebSocket; check what it sends against the Privacy Policy`);
       assert.ok(!/getUserMedia|MediaRecorder|SpeechRecognition/.test(text), `${file} uses the microphone; update the Privacy Policy first`);
       assert.ok(!text.includes('api.deepseek.com'), file);
     }
@@ -235,6 +243,9 @@ describe('speaking practice scores', () => {
     assert.equal(scoreSpokenAttempt('good morning friend', 'good banana friend', 'en-US') < SPEAKING_PASS_SCORE, true);
     assert.equal(SPEAKING_PASS_SCORE, 80);
     for (const language of LANGUAGES) assert.ok(SPEECH_RECOGNITION_LOCALES[language], language);
+    // Scribe knows every language but Latin, which falls back to the browser's recognition
+    for (const language of LANGUAGES) assert.equal(Boolean(SCRIBE_LANGUAGE_CODES[language]), language !== 'Latin', language);
+    for (const language of Object.keys(SCRIBE_LANGUAGE_CODES)) assert.ok(LANGUAGES.includes(language), language);
   });
   const graded = (parts) => parts.filter((p) => p.grade).map((p) => `${p.text}:${p.grade}`);
   test('the Speak box shows only the sentence\'s words, as they are reached, each graded', () => {
