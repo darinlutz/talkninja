@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { passwordProblem } from '@/lib/passwordRules';
 import { createSession, getCurrentUser, isRememberedSession } from '@/lib/session';
-import { checkPassword, updatePassword } from '@/lib/users';
+import { confirmPassword, PASSWORD_CHECK_ERRORS } from '@/lib/passwordConfirmation';
+import { updatePassword } from '@/lib/users';
 
 // The Account page's Change Password. Body: { currentPassword, newPassword }.
 // The new password follows the signup rules and is hashed the same way
@@ -24,7 +25,13 @@ export async function PUT(request: Request) {
     if (problem) {
       return NextResponse.json({ error: problem }, { status: 400 });
     }
-    if (!(await checkPassword(user.id, currentPassword))) {
+    // Limited to 5 wrong passwords per 15 minutes, like the other password re-checks, so a stolen session can't
+    // be used to guess the password
+    const check = await confirmPassword(user.id, currentPassword);
+    if (check === 'locked') {
+      return NextResponse.json(PASSWORD_CHECK_ERRORS.locked, { status: PASSWORD_CHECK_ERRORS.locked.status });
+    }
+    if (check !== 'ok') {
       return NextResponse.json({ error: 'Your current password is incorrect' }, { status: 400 });
     }
 

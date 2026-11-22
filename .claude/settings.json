@@ -22,7 +22,9 @@
       "Read(//Users/darinlutz/Desktop/**)",
       "Read(//Users/darinlutz/**)",
       "WebFetch(domain:elevenlabs.io)",
-      "mcp__plugin_render_render__list_services"
+      "mcp__plugin_render_render__list_services",
+      "Skill(update-config)",
+      "Skill(update-config:*)"
     ]
   }
 }

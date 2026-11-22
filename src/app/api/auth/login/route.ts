@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { ABUSE_LIMITS, limitReached, recordAttempt } from '@/lib/abuseGuards';
+import { clientIp } from '@/lib/rateLimits';
 import { createSession, setRememberedEmail } from '@/lib/session';
 import { authenticateUser, recordLogin } from '@/lib/users';
 import { linkConsentToUser } from '@/lib/cookieConsentRecords';
@@ -15,8 +17,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
     }
 
+    // Limits password guessing: too many failures for this address or from this IP address lock it for a while
+    // (src/lib/abuseGuards.ts). Checked before the password, so a locked address can't be probed further.
+    const emailKey = `login-email:${emailAddress}`;
+    const ipKey = `login-ip:${clientIp(request) ?? 'unknown'}`;
+    if (
+      limitReached(emailKey, ABUSE_LIMITS.loginFailuresPerEmail) ||
+      limitReached(ipKey, ABUSE_LIMITS.loginFailuresPerIp)
+    ) {
+      return NextResponse.json(
+        { error: 'Too many failed attempts. Please wait 15 minutes and try again, or reset your password.' },
+        { status: 429 }
+      );
+    }
+
     const user = await authenticateUser(emailAddress, password);
     if (!user) {
+      recordAttempt(emailKey);
+      recordAttempt(ipKey);
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
     }
 

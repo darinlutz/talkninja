@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { ABUSE_LIMITS, limitReached, recordAttempt } from '@/lib/abuseGuards';
+import { clientIp } from '@/lib/rateLimits';
 import { passwordProblem } from '@/lib/passwordRules';
 import { createSession } from '@/lib/session';
 import { createUser, EmailTakenError } from '@/lib/users';
@@ -43,6 +45,14 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    // Each signup emails an activation link to the address given, so one IP address can't create accounts (and send
+    // email to strangers) without limit
+    const ipKey = `signup-ip:${clientIp(request) ?? 'unknown'}`;
+    if (limitReached(ipKey, ABUSE_LIMITS.signupPerIp)) {
+      return NextResponse.json({ error: 'Too many new accounts. Please try again in an hour.' }, { status: 429 });
+    }
+    recordAttempt(ipKey);
 
     const user = await createUser({
       userName,

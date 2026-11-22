@@ -493,10 +493,17 @@ export async function authenticateUser(emailAddress: string, password: string): 
     `SELECT ${USER_COLUMNS}, password FROM "Users" WHERE lower(email_address) = lower($1)`,
     [emailAddress]
   );
-  if (!row) return null;
+  if (!row) {
+    // The same scrypt work as a real check, so the response time doesn't reveal which addresses have an account
+    await verifyPassword(password, await dummyPasswordHash());
+    return null;
+  }
   const ok = await verifyPassword(password, row.password as string);
   return ok ? rowToUser(row) : null;
 }
+
+let dummyHash: Promise<string> | null = null;
+const dummyPasswordHash = () => (dummyHash ??= hashPassword(randomBytes(16).toString('hex')));
 
 export async function getUserByEmail(emailAddress: string): Promise<User | null> {
   await ensureUserSchema();

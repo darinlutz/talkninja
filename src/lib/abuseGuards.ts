@@ -9,6 +9,11 @@ export const ABUSE_LIMITS = {
   resetPerIp: { max: 10, windowMs: HOUR },
   // Email address confirmation links resent per account an hour (signing up sends the first)
   verifyEmailPerUser: { max: 3, windowMs: HOUR },
+  // Failed logins per email address and per IP address in 15 minutes (password guessing)
+  loginFailuresPerEmail: { max: 10, windowMs: 15 * 60 * 1000 },
+  loginFailuresPerIp: { max: 30, windowMs: 15 * 60 * 1000 },
+  // Accounts created per IP address an hour (each signup emails an activation link to the address given)
+  signupPerIp: { max: 5, windowMs: HOUR },
 } as const;
 
 type Limit = { max: number; windowMs: number };

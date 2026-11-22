@@ -38,7 +38,14 @@ export async function getPasswordResetUser(token: string): Promise<User | null> 
 
 // Returns false when the link is invalid, expired, or already used.
 export async function resetPasswordWithToken(token: string, password: string): Promise<boolean> {
-  const user = await getPasswordResetUser(token);
+  await ensureUserSchema();
+  // Claims the link and deletes it in one statement, so two requests racing with the same link can't both use it
+  const [row] = await query('DELETE FROM "PasswordResets" WHERE token_hash = $1 RETURNING user_id, expires_at', [
+    hashToken(token),
+  ]);
+  // BIGINT columns come back from pg as strings
+  if (!row || Number(row.expires_at) < Date.now()) return false;
+  const user = await getUserById(Number(row.user_id));
   if (!user) return false;
   await updatePassword(user.id, password);
   await query('DELETE FROM "PasswordResets" WHERE user_id = $1', [user.id]);
